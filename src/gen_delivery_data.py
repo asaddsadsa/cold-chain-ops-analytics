@@ -533,7 +533,7 @@ def generate_tracking_and_anomalies(
     is_anom = rng.random(n) < anomaly_probabilities(region, is_friday, base_rate)
 
     type_names = [t for t, _ in C.ANOMALY_TYPE_SHARES]
-    anomaly_type = np.full(n, "无异常", dtype=object)
+    anomaly_type = np.full(n, C.NO_ANOMALY, dtype=object)
     # 「周五 × 雨日」只有 4 种组合，逐组合抽样——份额模型只有 anomaly_type_shares 一份
     for fri in (False, True):
         for rain in (False, True):
@@ -594,7 +594,7 @@ def generate_tracking_and_anomalies(
         speed = np.clip(speed_mean * (1.0 + rng.normal(0.0, 0.15, k)), 0.0, None)
 
         temp = C.CABIN_TEMP_SETPOINT_C + rng.normal(0.0, C.CABIN_TEMP_NOISE_SIGMA_C, k)
-        if anomaly_type[i] == "温控波动":
+        if anomaly_type[i] == C.TEMP_ANOMALY_TYPE:
             temp += rng.uniform(*C.CABIN_TEMP_EXCURSION_RISE_C) * frac  # 全程逐步升温
         unload_start = max(0.0, dur - C.UNLOAD_MINUTES)
         door = np.clip((offsets - unload_start) / max(dur - unload_start, 1e-9), 0.0, 1.0)
@@ -714,7 +714,7 @@ def build_qc_summary(
 
     全部统计量由生成产物直接计算——埋点回归测试（tests/）读取本摘要断言。
     """
-    is_anom = anomalies["anomaly_type"] != "无异常"
+    is_anom = anomalies["anomaly_type"] != C.NO_ANOMALY
     overall_rate = float(is_anom.mean())
 
     # 埋点①：片区异常率（HIGH_ANOMALY_REGION 显著高于其他片区）

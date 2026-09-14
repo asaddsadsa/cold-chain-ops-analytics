@@ -425,7 +425,7 @@ st.divider()
 st.subheader("在途异常构成与周度埋点")
 _anom_all = F.apply_regions(D.artifact("anomalies"), f)
 _anom = kpis.slice_window(_anom_all, f.window)
-_anom_only = _anom[_anom["anomaly_type"] != "无异常"]
+_anom_only = _anom[_anom["anomaly_type"] != C.NO_ANOMALY]
 
 _p0, _p1 = st.columns(2)
 with _p0:

@@ -127,8 +127,9 @@ in_win = anom[
 ]
 rows = UI.warning_rows(in_win, limit=10)
 st.caption(
-    f"区间内运单 **{len(in_win):,}** 单，其中异常 **{int((in_win['anomaly_type'] != '无异常').sum()):,}** 单"
-    f"（异常率 {(in_win['anomaly_type'] != '无异常').mean():.2%}）。"
+    f"区间内运单 **{len(in_win):,}** 单，其中异常 "
+    f"**{int((in_win['anomaly_type'] != C.NO_ANOMALY).sum()):,}** 单"
+    f"（异常率 {(in_win['anomaly_type'] != C.NO_ANOMALY).mean():.2%}）。"
     "严重度：晚点/故障/拥堵取延误分钟，温控波动取温升——后者延误被限制在 0–10 分钟，"
     "诊断价值在温度而非时刻。"
 )

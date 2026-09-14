@@ -421,3 +421,84 @@ class TestDailyKpi:
         # 准确率按金额加权、差异率按记录数，两者同一天不必互补——这是有意的两个口径
         assert got.loc["2026-06-01", "inventory_accuracy"] == pytest.approx(1 - 50 / 2000)
         assert got.loc["2026-06-01", "stocktake_discrepancy_rate"] == pytest.approx(0.5)
+
+
+class TestAggregateMatchesDaily:
+    """聚合口径与逐日口径必须同源。
+
+    这两段判定原先是两份实现——逐日版把 `act <= exp + tol` 与「行工时」各重写了一遍。
+    而**逐日版正是驾驶舱趋势线与环比箭头的读数据来源**：两版漂移时，聚合卡片与趋势线会
+    各报一个数，没有任何东西会变红（原先也确实没有一条测试把两者放在一起比对）。
+
+    收口后两者共用 `_receipt_on_time` / `_pick_seconds`。这里守住它：把逐日表按各自的权重
+    加回去，必须等于聚合口径报出的那个数。
+    """
+
+    def test_receipt_timeliness_reaggregates_to_the_headline_rate(self, outputs):
+        res = outputs["result"]
+        daily = res["daily"]
+        weighted = ((daily["receipt_timeliness_rate"] * daily["n_receipts"]).sum()
+                    / daily["n_receipts"].sum())
+        assert weighted == pytest.approx(res["kpis"]["receipt_timeliness"]["rate"], abs=1e-9)
+
+    def test_picking_efficiency_reaggregates_to_the_headline_rate(self, outputs):
+        res = outputs["result"]
+        daily = res["daily"]
+        rate = daily["n_pick_lines"].sum() / (daily["picking_seconds"].sum() / 3600)
+        assert rate == pytest.approx(res["kpis"]["picking_efficiency"]["lines_per_hour"],
+                                     abs=1e-9)
+
+    def test_receipt_timeliness_late_count_matches_the_daily_table(self, outputs):
+        res = outputs["result"]
+        daily = res["daily"]
+        assert int(daily["n_receipts"].sum()) == res["kpis"]["receipt_timeliness"]["n_records"]
+        assert int(daily["n_pick_lines"].sum()) == res["kpis"]["picking_efficiency"]["n_lines"]
+
+
+class TestGeneratorQcVersusKpiReDerivation:
+    """数据层 A 的埋点在两处各算一遍，且这份独立是**有意保留**的。
+
+    生成器从它内存里的表算（注入埋点的那一侧），数据层 KPI 从交付的 CSV 重新读、重新算
+    （证明埋点确实进了产物）。两份独立推导互证才有意义——合并成一个函数会让「互证」变成
+    同义反复。
+
+    但独立不等于可以不比对。**比对下来它们并不完全一致**，此处如实钉住，不擅自改：
+    动任何一边都会改变已发表的数字（台账与仓储页引用的是数据层 KPI 的那一版）。
+    """
+
+    def _qc_and_kpi(self) -> tuple[dict, dict]:
+        """→（生成器质检摘要的 embedding_checks, 数据层 KPI 产物整份）。"""
+        qc = json.loads((C.PROCESSED_DIR / "qc" / "warehouse_qc.json").read_text(encoding="utf-8"))
+        kpi = json.loads(C.WAREHOUSE_KPI_JSON.read_text(encoding="utf-8"))
+        return qc["embedding_checks"], kpi
+
+    def test_rates_and_abc_counts_agree(self):
+        """速率与 SKU 计数是一致的——台账引用的正是这几项。"""
+        q, kpi = self._qc_and_kpi()
+        k = kpi["embedding_checks"]
+        assert k["p03_discrepancy"]["p03_rate"] == pytest.approx(q["p03_discrepancy"]["p03_rate"])
+        assert k["p03_discrepancy"]["other_rate"] == pytest.approx(q["p03_discrepancy"]["other_rate"])
+        assert kpi["abc"]["by_class"]["A"]["n_sku"] == q["abc_distance"]["n_A"]
+
+    @pytest.mark.xfail(strict=False, reason=(
+        "已知口径分歧，待定夺：14–16 点低谷，生成器逐**行**等权、KPI 逐**小时**等权。"
+        "两小时行数不同（14 点 4906 行、15 点 6134 行），于是均值相差 0.1 秒/行（168.4 vs 168.5）。"
+        "「秒/行」的正当口径是逐行等权，但要改就得动台账与仓储页引用的数字，故先钉住不擅改。"
+        "此标记会在两侧对齐后自动变为 XPASS。"))
+    def test_pick_slowdown_seconds_agree(self):
+        q, kpi = self._qc_and_kpi()
+        k = kpi["embedding_checks"]
+        assert k["pick_slowdown_14_16"]["sec_per_line_14_16"] == pytest.approx(
+            q["pick_slowdown_14_16"]["sec_per_line_14_16"])
+        assert k["pick_slowdown_14_16"]["sec_per_line_other"] == pytest.approx(
+            q["pick_slowdown_14_16"]["sec_per_line_other"])
+
+    @pytest.mark.xfail(strict=False, reason=(
+        "已知口径分歧，成因尚未定位：P03 盘差比值 4.34（生成器 QC）vs 4.35（数据层 KPI）。"
+        "两侧的 p03_rate / other_rate 都取整到 0.1745 / 0.0402 且一致，差的是未取整值——"
+        "KPI 侧实测 ratio=4.346648 → 4.35，生成器侧落在 4.34 区间。"
+        "需单独排查生成器那条路径的 other_rate 是怎么平均出来的。"))
+    def test_p03_ratio_agrees(self):
+        q, kpi = self._qc_and_kpi()
+        assert kpi["embedding_checks"]["p03_discrepancy"]["ratio"] == pytest.approx(
+            q["p03_discrepancy"]["ratio"])

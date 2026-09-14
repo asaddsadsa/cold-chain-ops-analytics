@@ -30,6 +30,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from src import anomaly
 from src import config as C
 from src import costing
 from src import gen_delivery_data as GD
@@ -65,7 +66,7 @@ def _point_flags(anomalies: pd.DataFrame) -> pd.DataFrame:
     """
     df = anomalies.copy()
     df["is_late"] = df["anomaly_type"] == "晚点"
-    df["is_anomaly"] = df["anomaly_type"] != "无异常"
+    df["is_anomaly"] = df["anomaly_type"] != C.NO_ANOMALY
     df["is_friday"] = df["is_friday"].astype(bool)
     df["is_rainy"] = df["rainy"].astype(bool)
     df["is_r07"] = df["region"] == C.HIGH_ANOMALY_REGION
@@ -159,7 +160,7 @@ def weekly_anomaly_summary(anomalies: pd.DataFrame) -> pd.DataFrame:
             "mean_handling_min": float(anom["handling_min"].mean()) if len(anom) else 0.0,
             "temp_compliance_rate": float(grp["temp_compliance_rate"].mean()) if n else float("nan"),
         }
-        for name in types + ["无异常"]:
+        for name in types + [C.NO_ANOMALY]:
             row[f"share_{name}"] = float((grp["anomaly_type"] == name).mean()) if n else float("nan")
         shares = {name: row[f"share_{name}"] for name in types}
         row["top_type"] = max(shares, key=shares.get) if any(shares.values()) else None
@@ -241,32 +242,20 @@ def embedded_point_reproduction(anomalies: pd.DataFrame) -> dict:
 def typical_anomaly_cases(anomalies: pd.DataFrame, per_type: int | None = None) -> pd.DataFrame:
     """典型异常案例清单：每类异常按**严重度**取前 N 条（需求 41）。
 
-    严重度规则显式且不可择优：
-      - 晚点 / 故障 / 拥堵 → `delay_min`（延误越长越严重）；
-      - 温控波动 → `temp_max_c − 设定点`（温升越高越严重）。
-
-    温控波动单列一套规则是有意的：它的延误被刻意限制在 0–10 分钟（见 config
-    `ANOMALY_DELAY_MINUTES`），诊断价值在**温度**而不在时刻，用延误排序会把它排到末尾、
-    让温度埋点在案例清单里消失。「无异常」不入选（它不是案例，是背景）。
+    严重度规则本身（延误 / 温升两套基准、「无异常」不入选）住在
+    `src/anomaly.py::with_severity`——它原先在本函数与看板的 `warning_rows` 里各写一遍，
+    两处 docstring 都写着「同一套规则」而没有任何东西强制它们一致。本函数只决定**选取口径**：
+    按异常类型分组、每类取严重度前 N（看板侧则是按日期取最近若干条）。
     """
     per_type = C.ANOMALY_CASES_PER_TYPE if per_type is None else per_type
-    df = anomalies[anomalies["anomaly_type"] != "无异常"].copy()
+    df = anomaly.with_severity(anomalies)
     if df.empty:
-        return pd.DataFrame(
-            columns=["order_id", "date", "region", "poi_id", "vehicle_id", "anomaly_type",
-                     "delay_min", "handling_min", "temp_max_c", "severity", "severity_basis"]
-        )
-    is_temp = df["anomaly_type"] == "温控波动"
-    df["severity"] = np.where(
-        is_temp, df["temp_max_c"] - C.CABIN_TEMP_SETPOINT_C, df["delay_min"]
-    )
-    df["severity_basis"] = np.where(is_temp, "温升 (℃)", "延误 (min)")
+        return pd.DataFrame(columns=anomaly.SEVERITY_COLUMNS)
     # 同级按 order_id 兜底，保证同一种子下案例清单逐条可复现
     df = df.sort_values(["anomaly_type", "severity", "order_id"],
                         ascending=[True, False, True], kind="stable")
-    cols = ["order_id", "date", "region", "poi_id", "vehicle_id", "anomaly_type",
-            "delay_min", "handling_min", "temp_max_c", "severity", "severity_basis"]
-    return df.groupby("anomaly_type", sort=True).head(per_type)[cols].reset_index(drop=True)
+    return df.groupby("anomaly_type", sort=True).head(per_type)[
+        list(anomaly.SEVERITY_COLUMNS)].reset_index(drop=True)
 
 
 # ---------------------------------------------------------------------------

@@ -127,6 +127,14 @@ ORDER_VOLUME_MEDIAN_M3: float = 0.30
 ANOMALY_TYPE_SHARES: tuple[tuple[str, float], ...] = (
     ("拥堵", 0.35), ("晚点", 0.35), ("温控波动", 0.20), ("故障", 0.10),
 )  # 异常类型份额（情景假设，合计 1.0；「无异常」为剩余概率）
+#: 异常词表的两个哨兵（与 `HIGH_DIFF_CATEGORY` / `HIGH_ANOMALY_REGION` 同一模式：
+#: 领域词表的值集中在 config，禁止在代码里散落字面量）。
+#: 「无异常」不是异常类型之一，而是背景——凡按异常聚合处都要显式排除它，
+#: 否则异常率会被自身的分母稀释。
+NO_ANOMALY: str = "无异常"
+#: 温控波动的延误被刻意限制在 0–10 分钟（见 `ANOMALY_DELAY_MINUTES`），
+#: 故它的严重度按**温升**判而非延误（规则见 `src/anomaly.py::with_severity`）。
+TEMP_ANOMALY_TYPE: str = "温控波动"
 ANOMALY_REGION_MULTIPLIER: float = 2.8  # 埋点②：HIGH_ANOMALY_REGION 异常概率倍率
 #: 埋点①：周五午后拥堵叠加周末备货高峰——整体异常概率与「晚点」份额同时抬升。
 #: 实测依据：仅抬高晚点份额时（倍率 2.2）周五/其他日晚点率之比仅 1.24、约 1.4σ，

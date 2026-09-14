@@ -17,6 +17,8 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+from src import anomaly
+from src import config as C
 from src.dashboard import theme
 from src.dashboard.kpis import Metric
 
@@ -158,26 +160,20 @@ def grouped_bar(labels, values, *, label: str, unit: str, slot: int = 0,
 def warning_rows(anomalies: pd.DataFrame, *, limit: int = 8) -> pd.DataFrame:
     """最近异常预警清单：按「严重度」取最近的若干条，规则显式。
 
-    严重度 = 延误分钟（温控波动按温升），与 11 号票典型案例清单同一套规则；
-    同分按日期与订单号兜底，保证同样输入下清单逐条可复现（不随排序抖动）。
+    严重度 = 延误分钟（温控波动按温升），与 11 号票典型案例清单**同一套规则**——规则本身
+    住在 `src/anomaly.py::with_severity`，本函数只决定**展示口径**：按日期倒序取最近若干条
+    （报告侧是按异常类型分组、每类取前 N）。同分按日期与订单号兜底，保证同样输入下清单逐条
+    可复现（不随排序抖动）。
     """
     if anomalies.empty:
         return anomalies
-    from src import config as C
-
-    df = anomalies[anomalies["anomaly_type"] != "无异常"].copy()
+    df = anomaly.with_severity(anomalies)
     if df.empty:
         return df
-    is_temp = df["anomaly_type"] == "温控波动"
-    df["severity"] = [
-        (float(t) - C.CABIN_TEMP_SETPOINT_C) if temp else float(d)
-        for temp, d, t in zip(is_temp, df["delay_min"], df["temp_max_c"])
-    ]
-    df["severity_basis"] = ["温升 (℃)" if temp else "延误 (min)" for temp in is_temp]
     df = df.sort_values(["date", "severity", "order_id"],
                         ascending=[False, False, True], kind="stable")
-    keep = ["date", "order_id", "region", "poi_id", "vehicle_id", "anomaly_type",
-            "delay_min", "handling_min", "temp_max_c", "severity", "severity_basis"]
+    # 看板把 `date` 提到最前（清单按时间读），其余列序与报告侧共用同一份声明
+    keep = ["date", *[c for c in anomaly.SEVERITY_COLUMNS if c != "date"]]
     return df[keep].head(limit).reset_index(drop=True)
 
 
@@ -189,9 +185,11 @@ def warning_list(rows: pd.DataFrame) -> None:
                     unsafe_allow_html=True)
         return
     icon = {"故障": theme.STATUS_ICON["critical"], "晚点": theme.STATUS_ICON["serious"],
-            "拥堵": theme.STATUS_ICON["warning"], "温控波动": theme.STATUS_ICON["warning"]}
+            "拥堵": theme.STATUS_ICON["warning"],
+            C.TEMP_ANOMALY_TYPE: theme.STATUS_ICON["warning"]}
     color = {"故障": theme.STATUS["critical"], "晚点": theme.STATUS["serious"],
-             "拥堵": theme.STATUS["warning"], "温控波动": theme.STATUS["warning"]}
+             "拥堵": theme.STATUS["warning"],
+             C.TEMP_ANOMALY_TYPE: theme.STATUS["warning"]}
     for r in rows.itertuples(index=False):
         # 文字一律穿墨色 token，不穿序列色；身份由旁边的状态色标记承担
         st.markdown(

@@ -128,15 +128,41 @@ def inventory_accuracy(
     return out[["date", "rate", "abs_diff_value", "book_value", "n_records"]]
 
 
-def receipt_timeliness(inbound: pd.DataFrame, tolerance_min: float | None = None) -> dict:
-    """收货及时率 = 实际到货 ≤ 预约到货 + 容差 的记录占比（需求 3.7）。
+def _receipt_on_time(
+    inbound: pd.DataFrame, tolerance_min: float | None = None
+) -> tuple[pd.Series, pd.Series, float]:
+    """收货及时性的判定：→（是否及时, 预约到货时刻, 所用容差分钟）。
+
+    **口径只允许这一个实现。** 聚合版 `receipt_timeliness` 取掩码均值；逐日版 `daily_kpi`
+    按预约到货日分组取均值——两处若各写一遍 `act <= exp + tol`，口径漂移时不会有东西变红
+    （而逐日版正是驾驶舱趋势线与环比箭头的读数据来源）。
 
     容差读 config（默认 30 分钟）——不加容差会把「提前/小幅迟到」误判为不及时。
     """
     tol = C.RECEIPT_TOLERANCE_MIN if tolerance_min is None else tolerance_min
     expected = pd.to_datetime(inbound["expected_arrival"])
     actual = pd.to_datetime(inbound["actual_arrival"])
-    on_time = actual <= expected + pd.Timedelta(minutes=tol)
+    return actual <= expected + pd.Timedelta(minutes=tol), expected, float(tol)
+
+
+def _pick_seconds(outbound: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
+    """每行拣货工时（秒）与开工时刻。
+
+    逐行计时（同单内各行错峰开工），故按**行**累计工时而非按订单去重，否则多行订单的工时
+    会被重复计入分母、效率被低估。聚合版 `picking_efficiency` 用它的和；逐日版按 `pick_start`
+    所在日分组。
+    """
+    start = pd.to_datetime(outbound["pick_start"])
+    end = pd.to_datetime(outbound["pick_end"])
+    return (end - start).dt.total_seconds(), start
+
+
+def receipt_timeliness(inbound: pd.DataFrame, tolerance_min: float | None = None) -> dict:
+    """收货及时率 = 实际到货 ≤ 预约到货 + 容差 的记录占比（需求 3.7）。
+
+    判定见 `_receipt_on_time`（与逐日版同源）。
+    """
+    on_time, _, tol = _receipt_on_time(inbound, tolerance_min)
     return {
         "rate": float(on_time.mean()),
         "n_records": int(len(inbound)),
@@ -148,12 +174,9 @@ def receipt_timeliness(inbound: pd.DataFrame, tolerance_min: float | None = None
 def picking_efficiency(outbound: pd.DataFrame) -> dict:
     """拣货效率（行/人时）= 出库总行数 / Σ 每行拣货工时（需求 3.7）。
 
-    逐行计时（同单内各行错峰开工），故按**行**累计工时而非按订单去重，
-    否则多行订单的工时会被重复计入分母、效率被低估。
+    工时口径见 `_pick_seconds`（与逐日版同源）。
     """
-    seconds = (
-        pd.to_datetime(outbound["pick_end"]) - pd.to_datetime(outbound["pick_start"])
-    ).dt.total_seconds()
+    seconds, _ = _pick_seconds(outbound)
     lines = int(len(outbound))
     hours = float(seconds.sum()) / 3600.0
     return {
@@ -261,6 +284,10 @@ def daily_kpi(tables: dict[str, pd.DataFrame]) -> pd.DataFrame:
       - 收货及时率 → 收货表的**预约到货日**（排班口径看的是「该哪天到」，不是实际哪天到，
         否则晚到会被算到第二天去、当天的问题就消失了）；
       - 拣货效率 → 出库行的 `pick_start` 所在日。
+
+    收货及时率与拣货效率的判定掩码取自 `_receipt_on_time` / `_pick_seconds`——与聚合版
+    `receipt_timeliness` / `picking_efficiency` **同源**。逐日版原先把这两段口径各重写了一遍，
+    而它正是驾驶舱趋势线的数据来源，两版漂移时没有任何东西会变红。
     """
     sku, outbound, stocktake, inbound = (
         tables["sku"], tables["outbound"], tables["stocktake"], tables["inbound"]
@@ -273,22 +300,17 @@ def daily_kpi(tables: dict[str, pd.DataFrame]) -> pd.DataFrame:
         columns={"rate": "stocktake_discrepancy_rate", "n_records": "n_discrepancy_records"}
     )
 
-    exp = pd.to_datetime(inbound["expected_arrival"])
-    act = pd.to_datetime(inbound["actual_arrival"])
-    tol = pd.Timedelta(minutes=C.RECEIPT_TOLERANCE_MIN)
+    on_time, expected, _ = _receipt_on_time(inbound)
     receipt = (
-        pd.DataFrame({"date": exp.dt.date, "on_time": act <= exp + tol})
+        pd.DataFrame({"date": expected.dt.date, "on_time": on_time})
         .groupby("date", as_index=False)
         .agg(receipt_timeliness_rate=("on_time", "mean"), n_receipts=("on_time", "size"))
     )
     receipt["date"] = receipt["date"].astype(str)
 
-    start, end = pd.to_datetime(outbound["pick_start"]), pd.to_datetime(outbound["pick_end"])
+    seconds, start = _pick_seconds(outbound)
     pick = (
-        pd.DataFrame({
-            "date": start.dt.date,
-            "seconds": (end - start).dt.total_seconds(),
-        })
+        pd.DataFrame({"date": start.dt.date, "seconds": seconds})
         .groupby("date", as_index=False)
         .agg(picking_seconds=("seconds", "sum"), n_pick_lines=("seconds", "size"))
     )
