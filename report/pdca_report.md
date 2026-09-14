@@ -50,7 +50,7 @@
 
 ### P-1 拣货效率存在下午时段低谷
 
-- **现象**：14:00–16:00 的拣货耗时为 **168.5 秒/行**，其余时段 **88.7 秒/行**，比值 **1.90**。
+- **现象**：14:00–16:00 的拣货耗时为 **168.4 秒/行**，其余时段 **88.6 秒/行**，比值 **1.90**。
 - **数据类别**：过程仿真（数据层 A 主动埋入的效率低谷），由 `picking_efficiency_by_hour` 独立复现。
 - **证据**：`warehouse_kpi/kpi_overall.json` → `embedding_checks.pick_slowdown_14_16`；
   逐小时明细 `warehouse_kpi/drilldown_picking_hour.csv`。
@@ -59,7 +59,7 @@
 
 ### P-2 P03 品类盘点差异率显著偏高
 
-- **现象**：P03 品类盘点差异率 **17.45%**，其余品类均值 **4.02%**，比值 **4.35**。
+- **现象**：P03 品类盘点差异率 **17.45%**，其余品类合计 **4.02%**，比值 **4.34**。
 - **数据类别**：过程仿真（数据层 A 埋点），由分品类下钻独立复现。
 - **证据**：`warehouse_kpi/kpi_overall.json` → `embedding_checks.p03_discrepancy`；
   明细 `warehouse_kpi/drilldown_stocktake_category.csv`。
@@ -238,7 +238,7 @@
 
 | 报告中的数字 | 产物文件 | 生成命令 |
 |---|---|---|
-| 拣货 168.5 vs 88.7 秒/行、P03 盘差 17.45% vs 4.02%、库存准确率 99.90%、收货及时率 81.49%、拣货 33.1 行/人时、履约 0.99 h、库容利用率 62.50%、盘差率 5.29% | `data/processed/warehouse_kpi/kpi_overall.json` | `python -m src.warehouse_kpi` |
+| 拣货 168.4 vs 88.6 秒/行、P03 盘差 17.45% vs 4.02%、库存准确率 99.90%、收货及时率 81.49%、拣货 33.1 行/人时、履约 0.99 h、库容利用率 62.50%、盘差率 5.29% | `data/processed/warehouse_kpi/kpi_overall.json` | `python -m src.warehouse_kpi` |
 | 行走成本 3,932,220 → 1,538,212 行·米、每行 89.12 → 34.86 m | 同上 → `slotting` | 同上 |
 | ABC：A 类 141 个 SKU 占 70.0% 出库行数 | 同上 → `abc` | 同上 |
 | 代表日 1,170.14 → 876.15 km、11 → 10 台、满载率 70.03% → 77.03%、成本降幅 | `data/processed/transport/transport_kpi.json`、`baseline_vs_optimized.csv` | `python -m src.transport_optimize` |

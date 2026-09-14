@@ -462,8 +462,12 @@ class TestGeneratorQcVersusKpiReDerivation:
     （证明埋点确实进了产物）。两份独立推导互证才有意义——合并成一个函数会让「互证」变成
     同义反复。
 
-    但独立不等于可以不比对。**比对下来它们并不完全一致**，此处如实钉住，不擅自改：
-    动任何一边都会改变已发表的数字（台账与仓储页引用的是数据层 KPI 的那一版）。
+    但独立不等于可以不比对。这里就是那份比对：**两处必须逐字段相等**。
+
+    这道对账在 2026-09-14 第一次跑时**红了两条**，查出同一个根因：数据层 KPI 对分组结果
+    取**等权平均**（逐小时、逐品类），而生成器按**自然单位**合并（逐行、逐记录）。两处分歧
+    （168.5 vs 168.4 秒/行、4.35 vs 4.34）都是这么来的。已把 KPI 侧改为合并口径——单组的率
+    本来就是合并算的，拿它去比各组等权的均值，两侧不是同一种量。
     """
 
     def _qc_and_kpi(self) -> tuple[dict, dict]:
@@ -480,11 +484,6 @@ class TestGeneratorQcVersusKpiReDerivation:
         assert k["p03_discrepancy"]["other_rate"] == pytest.approx(q["p03_discrepancy"]["other_rate"])
         assert kpi["abc"]["by_class"]["A"]["n_sku"] == q["abc_distance"]["n_A"]
 
-    @pytest.mark.xfail(strict=False, reason=(
-        "已知口径分歧，待定夺：14–16 点低谷，生成器逐**行**等权、KPI 逐**小时**等权。"
-        "两小时行数不同（14 点 4906 行、15 点 6134 行），于是均值相差 0.1 秒/行（168.4 vs 168.5）。"
-        "「秒/行」的正当口径是逐行等权，但要改就得动台账与仓储页引用的数字，故先钉住不擅改。"
-        "此标记会在两侧对齐后自动变为 XPASS。"))
     def test_pick_slowdown_seconds_agree(self):
         q, kpi = self._qc_and_kpi()
         k = kpi["embedding_checks"]
@@ -493,12 +492,50 @@ class TestGeneratorQcVersusKpiReDerivation:
         assert k["pick_slowdown_14_16"]["sec_per_line_other"] == pytest.approx(
             q["pick_slowdown_14_16"]["sec_per_line_other"])
 
-    @pytest.mark.xfail(strict=False, reason=(
-        "已知口径分歧，成因尚未定位：P03 盘差比值 4.34（生成器 QC）vs 4.35（数据层 KPI）。"
-        "两侧的 p03_rate / other_rate 都取整到 0.1745 / 0.0402 且一致，差的是未取整值——"
-        "KPI 侧实测 ratio=4.346648 → 4.35，生成器侧落在 4.34 区间。"
-        "需单独排查生成器那条路径的 other_rate 是怎么平均出来的。"))
     def test_p03_ratio_agrees(self):
         q, kpi = self._qc_and_kpi()
         assert kpi["embedding_checks"]["p03_discrepancy"]["ratio"] == pytest.approx(
             q["p03_discrepancy"]["ratio"])
+
+    def test_every_shared_embedding_field_agrees(self):
+        """逐字段穷举，避免将来新增字段时漏检（上面几条是点名的，这条是兜底的）。"""
+        q, kpi = self._qc_and_kpi()
+        k = kpi["embedding_checks"]
+        for name in ("p03_discrepancy", "pick_slowdown_14_16"):
+            shared = set(q[name]) & set(k[name])
+            assert shared, name
+            for field in sorted(shared):
+                assert k[name][field] == pytest.approx(q[name][field]), f"{name}.{field}"
+
+
+class TestPooledRateIsNotAnAverageOfRates:
+    """口径本身：头条率按**自然单位**合并，不是各组比率的等权平均。
+
+    这组测试盯的是口径的**定义**，而不是那两个具体数值——数值会随数据重生成而变，
+    口径不该。
+    """
+
+    def test_pooled_rate_equals_sum_of_numerators_over_sum_of_denominators(self):
+        rates = pd.Series([0.5, 0.1])
+        weights = pd.Series([100.0, 1.0])
+        # Σ(率×单位数) / Σ单位数 = (50 + 0.1) / 101，而不是 (0.5+0.1)/2
+        assert WK._pooled_rate(rates, weights) == pytest.approx(50.1 / 101)
+        assert WK._pooled_rate(rates, weights) != pytest.approx(rates.mean())
+
+    def test_pooled_rate_differs_from_equal_weighting_when_sizes_differ(self):
+        """组内单位数不等时两者必然不同——等权平均让小组拿到与大组一样的权重。"""
+        rates = pd.Series([0.9, 0.1])
+        weights = pd.Series([10.0, 1000.0])
+        assert WK._pooled_rate(rates, weights) < rates.mean()
+
+    def test_empty_weights_gives_nan_not_a_crash(self):
+        assert pd.isna(WK._pooled_rate(pd.Series([], dtype=float), pd.Series([], dtype=float)))
+
+    def test_headline_other_rate_matches_the_record_weighted_pool(self):
+        """真实产物上核对：KPI 报的「其余品类」确实等于 Σ差异记录 / Σ盘点记录。"""
+        kpi = json.loads(C.WAREHOUSE_KPI_JSON.read_text(encoding="utf-8"))
+        cat = pd.read_csv(C.WAREHOUSE_DRILLDOWN_CATEGORY_CSV, encoding="utf-8-sig")
+        other = cat[cat["category"] != C.HIGH_DIFF_CATEGORY]
+        pooled = other["n_diff"].sum() / other["n_records"].sum()
+        assert kpi["embedding_checks"]["p03_discrepancy"]["other_rate"] == pytest.approx(
+            pooled, abs=5e-5)  # 产物里存的是 4 位小数

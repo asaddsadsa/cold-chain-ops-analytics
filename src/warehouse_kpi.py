@@ -145,6 +145,19 @@ def _receipt_on_time(
     return actual <= expected + pd.Timedelta(minutes=tol), expected, float(tol)
 
 
+def _pooled_rate(rates: pd.Series, weights: pd.Series) -> float:
+    """按**自然单位**加权的合并率 = Σ(各组率 × 组内单位数) / Σ组内单位数。
+
+    它等价于「Σ分子 / Σ分母」——例如盘差率 = 差异记录数合计 / 盘点记录数合计。
+
+    与之相对的「对各组比率取等权平均」是**另一个统计量**，回答的是「平均而言一个组如何」。
+    两者在组内单位数不等时不同，而头条口径要的是前者：单组（如 P03）的率本来就是合并算的，
+    拿它去比各组等权的均值，两侧不是同一种量。
+    """
+    total = float(weights.sum())
+    return float((rates * weights).sum() / total) if total else float("nan")
+
+
 def _pick_seconds(outbound: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
     """每行拣货工时（秒）与开工时刻。
 
@@ -469,14 +482,23 @@ def compute_all_kpis(tables: dict[str, pd.DataFrame]) -> dict:
     locs = pd.Series({s: sku_loc[s] for s in freq.index})
     slotting = optimize_slotting(freq, dist, locs)
 
-    # 埋点复现：P03 盘差（分品类）与 14–16 点拣货低谷（分时段）
-    cat = by_category.set_index("category")["rate"]
-    p03_rate = float(cat.loc[C.HIGH_DIFF_CATEGORY])
-    other_rate = float(cat.drop(index=C.HIGH_DIFF_CATEGORY).mean())
+    # 埋点复现：P03 盘差（分品类）与 14–16 点拣货低谷（分时段）。
+    #
+    # 两处都按**自然单位**合并（记录数 / 行数），而不是对各组比率取等权平均。理由是
+    # 单组的率本来就是合并算出来的（P03 的 17.45% 就是 74/424），拿它去比一个「各组等权」
+    # 的均值，两侧根本不是同一种量；而且等权平均会让记录少的组拿到与记录多的组一样的权重。
+    # 数据层 A 的质检摘要用的正是合并口径，此前两者对不上就出在这里——见
+    # `tests/test_warehouse_kpi.py::TestGeneratorQcVersusKpiReDerivation` 的对账。
+    cat = by_category.set_index("category")
+    other_cats = cat.drop(index=C.HIGH_DIFF_CATEGORY)
+    p03_rate = float(cat.loc[C.HIGH_DIFF_CATEGORY, "rate"])
+    other_rate = _pooled_rate(other_cats["rate"], other_cats["n_records"])
+
     h0, h1 = C.PICK_SLOW_HOURS
-    slow = by_hour["hour"].between(h0, h1 - 1)
-    slow_sec = float(by_hour.loc[slow, "sec_per_line"].mean())
-    other_sec = float(by_hour.loc[~slow, "sec_per_line"].mean())
+    hour = by_hour.set_index("hour")
+    slow_mask = (hour.index >= h0) & (hour.index < h1)
+    slow_sec = _pooled_rate(hour.loc[slow_mask, "sec_per_line"], hour.loc[slow_mask, "n_lines"])
+    other_sec = _pooled_rate(hour.loc[~slow_mask, "sec_per_line"], hour.loc[~slow_mask, "n_lines"])
 
     return {
         "kpis": kpis,
