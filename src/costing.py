@@ -219,9 +219,14 @@ def tco_analysis(ref_km: float | None = None) -> dict:
         )
 
     breakeven = float(breakeven_km())
-    daily_gap = float(daily_total("diesel", ref_km) - daily_total("ev", ref_km))
+    diesel_at_ref = float(daily_total("diesel", ref_km))
+    ev_at_ref = float(daily_total("ev", ref_km))
+    daily_gap = diesel_at_ref - ev_at_ref
     recommendation = {
-        "recommended_mode": "ev" if ref_km > breakeven else "diesel",
+        # 模式选择走 `cheaper_mode` 这一个口径。原先这里写的是「参考里程是否越过了盈亏平衡点」，
+        # 与 `cheaper_mode` 是两套规则，且在**恰好相等**处给出相反答案（这里判 diesel，
+        # `cheaper_mode` 判 ev）——而本模块的 docstring 宣称模式选择只允许一个实现。
+        "recommended_mode": cheaper_mode(diesel_at_ref, ev_at_ref),
         "breakeven_km": round(breakeven, 2),
         "reference_daily_km": ref_km,
         "daily_saving_vs_diesel": round(daily_gap, 2),

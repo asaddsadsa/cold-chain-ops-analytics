@@ -51,9 +51,9 @@ class TestReportReconcilesWithArtifacts:
     def test_pick_slowdown_embedding(self):
         """P-1：14–16 点低谷的三个数字。
 
-        注意这三个数取自**数据层 KPI**（`kpi_overall.json`），报告与运输页引用的都是它；
-        数据层 A 质检摘要另有一套逐小时等权的算法，两者差 0.1 秒/行，已在
-        `test_warehouse_kpi.py::TestGeneratorQcVersusKpiReDerivation` 里如实钉住。
+        这三个数取自**数据层 KPI**（`kpi_overall.json`），报告与运输页引用的都是它。
+        数据层 A 的质检摘要另有一份独立推导，两者现已**逐字段相等**
+        （`test_warehouse_kpi.py::TestGeneratorQcVersusKpiReDerivation` 守着这一点）。
         """
         slow = D.warehouse_kpi().pick_slowdown
         text = _report()

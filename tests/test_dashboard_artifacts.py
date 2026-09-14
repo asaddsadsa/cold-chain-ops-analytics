@@ -184,9 +184,10 @@ def _warehouse_raw() -> dict:
                      "reduction_pct": 60.88, "walk_m_per_line_before": 89.12,
                      "walk_m_per_line_after": 34.86, "walk_sec_per_line_saved": 45.22},
         "embedding_checks": {
-            "pick_slowdown_14_16": {"sec_per_line_14_16": 168.5,
-                                    "sec_per_line_other": 88.7, "ratio": 1.9},
-            "p03_discrepancy": {"p03_rate": 0.1745, "other_rate": 0.0402, "ratio": 4.35},
+            # 取值照抄真实产物（`kpi_overall.json`），便于对照阅读
+            "pick_slowdown_14_16": {"sec_per_line_14_16": 168.4,
+                                    "sec_per_line_other": 88.6, "ratio": 1.9},
+            "p03_discrepancy": {"p03_rate": 0.1745, "other_rate": 0.0402, "ratio": 4.34},
         },
         "kpis": {"inventory_accuracy": {"rate": 0.99895}},
     }
