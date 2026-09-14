@@ -21,12 +21,20 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from string import Template
 
 logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_MD = PROJECT_ROOT / "report" / "pdca_report.md"
 DEFAULT_PDF = PROJECT_ROOT / "report" / "pdca_report.pdf"
+
+# 本脚本以文件路径方式运行，`sys.path[0]` 是 report/ 而不是项目根，故显式引导一次，
+# 才能 import `src.dashboard.theme`（打印样式与看板共用同一份色板，见 `print_css`）。
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.dashboard import theme  # noqa: E402
 # 中间 HTML 放 report/build/——该目录已在 .gitignore 中（与「报告中间产物」规则一致，
 # 不另立规则；放在带点的 .build/ 会绕过该规则被误提交）
 DEFAULT_HTML = PROJECT_ROOT / "report" / "build" / "pdca_report.html"
@@ -180,40 +188,63 @@ def md_to_html(md_text: str) -> str:
 
 
 #: 中文字体优先的打印样式。正文用系统黑体栈，等宽用 Consolas/黑体兜底。
-_PRINT_CSS = """
+_PRINT_CSS_TEMPLATE = Template("""
 @page { size: A4; margin: 18mm 16mm; }
 body {
-  font-family: "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB",
-               "Noto Sans CJK SC", system-ui, -apple-system, "Segoe UI", sans-serif;
-  font-size: 10.5pt; line-height: 1.7; color: #0b0b0b; margin: 0;
+  font-family: $font_stack;
+  font-size: 10.5pt; line-height: 1.7; color: $primary_ink; margin: 0;
 }
-h1 { font-size: 20pt; border-bottom: 2px solid #c3c2b7; padding-bottom: 6px; }
-h2 { font-size: 15pt; margin-top: 22px; border-left: 4px solid #2a78d6; padding-left: 8px; }
+h1 { font-size: 20pt; border-bottom: 2px solid $axis; padding-bottom: 6px; }
+h2 { font-size: 15pt; margin-top: 22px; border-left: 4px solid $accent; padding-left: 8px; }
 h3 { font-size: 12.5pt; margin-top: 18px; }
 h4 { font-size: 11pt; }
 table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 9.5pt; }
-th, td { border: 1px solid #c3c2b7; padding: 5px 8px; text-align: left; vertical-align: top; }
-th { background: #f0efec; font-weight: 600; }
+th, td { border: 1px solid $axis; padding: 5px 8px; text-align: left; vertical-align: top; }
+th { background: $neutral; font-weight: 600; }
 blockquote {
-  margin: 10px 0; padding: 8px 12px; border-left: 3px solid #eb6834;
-  background: #f9f9f7; color: #52514e;
+  margin: 10px 0; padding: 8px 12px; border-left: 3px solid $series1;
+  background: $page; color: $secondary_ink;
 }
 code { font-family: Consolas, "Courier New", "Microsoft YaHei", monospace;
-       background: #f0efec; padding: 1px 4px; border-radius: 3px; font-size: 9.5pt; }
-pre { background: #f9f9f7; border: 1px solid #e1e0d9; padding: 10px;
+       background: $neutral; padding: 1px 4px; border-radius: 3px; font-size: 9.5pt; }
+pre { background: $page; border: 1px solid $grid; padding: 10px;
       overflow-x: auto; font-size: 9pt; }
 pre code { background: none; padding: 0; }
-hr { border: none; border-top: 1px solid #e1e0d9; margin: 18px 0; }
-a { color: #2a78d6; }
+hr { border: none; border-top: 1px solid $grid; margin: 18px 0; }
+a { color: $accent; }
 ul, ol { padding-left: 22px; }
 h2, h3, table, pre, blockquote { page-break-inside: avoid; }
-"""
+""")
+
+
+def print_css() -> str:
+    """打印用 CSS：色值与字体栈全部取自 `src.dashboard.theme`。
+
+    这里原先手写了 9 个十六进制色值加一个字体栈，逐个都能在 theme 里找到同一个值。
+    `theme.py` 自称「单一定义」（改色值前必须先重跑校验），报告层却绕过它复制了一份——
+    改色时没有任何机制能拦住两边漂移。报告是要交给招聘方看的，和看板必须是同一套视觉语言。
+
+    用 `string.Template` 而不是 f-string：CSS 里满是 `{}`，f-string 要求逐个写成 `{{}}`，
+    那会把这份样式表变得没法读。
+    """
+    t = theme.tokens()
+    return _PRINT_CSS_TEMPLATE.substitute(
+        font_stack=theme.FONT_STACK_PRINT,
+        primary_ink=t["primary_ink"],
+        secondary_ink=t["secondary_ink"],
+        page=t["page"],
+        grid=t["grid"],
+        axis=t["axis"],
+        neutral=theme.DIVERGING["mid"],
+        accent=theme.series(0),
+        series1=theme.series(1),
+    )
 
 
 def render_html(md_text: str, title: str) -> str:
     return (
         "<!doctype html><html lang='zh-CN'><head><meta charset='utf-8'>"
-        f"<title>{html.escape(title)}</title><style>{_PRINT_CSS}</style></head>"
+        f"<title>{html.escape(title)}</title><style>{print_css()}</style></head>"
         f"<body>{md_to_html(md_text)}</body></html>"
     )
 

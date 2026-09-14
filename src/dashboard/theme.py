@@ -90,6 +90,14 @@ FONT_STACK = (
     '"Hiragino Sans GB", "Noto Sans CJK SC", sans-serif'
 )
 
+#: 打印（PDF）字体栈：同一批字体，但把中文黑体**提到系统字体之前**。
+#: 屏幕渲染有系统级的 CJK 回退链，打印走无头浏览器时那条链不可靠——中文回退失败就是
+#: 整页豆腐块，故此处显式前置。它和 `FONT_STACK` 都住在这里，报告层不再各存一份。
+FONT_STACK_PRINT = (
+    '"Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", '
+    'system-ui, -apple-system, "Segoe UI", sans-serif'
+)
+
 TEMPLATE_NAME = "ckops"
 
 
