@@ -43,7 +43,7 @@
           }
         },
         "solve_time_limit_sec": null,
-        "solve_solution_limit": 500
+        "solve_solution_limit": null
       },
       "n_vehicles_used": null,
       "total_distance_km": null,
@@ -83,7 +83,7 @@
           }
         },
         "solve_time_limit_sec": null,
-        "solve_solution_limit": 500
+        "solve_solution_limit": null
       },
       "n_vehicles_used": null,
       "total_distance_km": null,
@@ -123,7 +123,7 @@
           }
         },
         "solve_time_limit_sec": null,
-        "solve_solution_limit": 500
+        "solve_solution_limit": null
       },
       "n_vehicles_used": null,
       "total_distance_km": null,
@@ -163,7 +163,7 @@
           }
         },
         "solve_time_limit_sec": null,
-        "solve_solution_limit": 500
+        "solve_solution_limit": null
       },
       "n_vehicles_used": null,
       "total_distance_km": null,
@@ -203,7 +203,7 @@
           }
         },
         "solve_time_limit_sec": null,
-        "solve_solution_limit": 500
+        "solve_solution_limit": null
       },
       "n_vehicles_used": 9,
       "total_distance_km": 945.73,
@@ -252,7 +252,7 @@
           }
         },
         "solve_time_limit_sec": null,
-        "solve_solution_limit": 500
+        "solve_solution_limit": null
       },
       "n_vehicles_used": 10,
       "total_distance_km": 907.35,
@@ -301,7 +301,7 @@
           }
         },
         "solve_time_limit_sec": null,
-        "solve_solution_limit": 500
+        "solve_solution_limit": null
       },
       "n_vehicles_used": 10,
       "total_distance_km": 873.87,
@@ -350,7 +350,7 @@
           }
         },
         "solve_time_limit_sec": null,
-        "solve_solution_limit": 500
+        "solve_solution_limit": null
       },
       "n_vehicles_used": 10,
       "total_distance_km": 876.15,
@@ -399,7 +399,7 @@
           }
         },
         "solve_time_limit_sec": null,
-        "solve_solution_limit": 500
+        "solve_solution_limit": null
       },
       "n_vehicles_used": 10,
       "total_distance_km": 876.15,
@@ -448,7 +448,7 @@
           }
         },
         "solve_time_limit_sec": null,
-        "solve_solution_limit": 500
+        "solve_solution_limit": null
       },
       "n_vehicles_used": 10,
       "total_distance_km": 876.15,
@@ -497,7 +497,7 @@
           }
         },
         "solve_time_limit_sec": null,
-        "solve_solution_limit": 500
+        "solve_solution_limit": null
       },
       "n_vehicles_used": 10,
       "total_distance_km": 876.15,
@@ -546,7 +546,7 @@
           }
         },
         "solve_time_limit_sec": null,
-        "solve_solution_limit": 500
+        "solve_solution_limit": null
       },
       "n_vehicles_used": 10,
       "total_distance_km": 876.15,
@@ -595,7 +595,7 @@
           }
         },
         "solve_time_limit_sec": null,
-        "solve_solution_limit": 500
+        "solve_solution_limit": null
       },
       "n_vehicles_used": 10,
       "total_distance_km": 876.15,
@@ -644,7 +644,7 @@
           }
         },
         "solve_time_limit_sec": null,
-        "solve_solution_limit": 500
+        "solve_solution_limit": null
       },
       "n_vehicles_used": 10,
       "total_distance_km": 876.15,
@@ -693,7 +693,7 @@
           }
         },
         "solve_time_limit_sec": null,
-        "solve_solution_limit": 500
+        "solve_solution_limit": null
       },
       "n_vehicles_used": 10,
       "total_distance_km": 876.15,
@@ -742,7 +742,7 @@
           }
         },
         "solve_time_limit_sec": null,
-        "solve_solution_limit": 500
+        "solve_solution_limit": null
       },
       "n_vehicles_used": 10,
       "total_distance_km": 876.15,

@@ -14,7 +14,8 @@
 **与 10 号票的口径衔接**：本模块的「优化前/后」数字不重新求解，而是读 10 号票落盘的
 `transport_kpi.json` 与 `trips.csv`——保证两份产物报的是**同一批数字**，评审可以互相核对。
 what-if 各档是新求解（那本来就是新计算），其中「档位 = 车队规模」那一档会与 10 号票发表的
-结果做一致性自检并如实报出差值（OR-Tools 带时限的启发式搜索不保证跨运行逐位复现）。
+结果做一致性自检并如实报出差值——两者建模同构、停止条件相同（解数，ADR-0015），
+差值恒为 0.0%，是「两处建模没走偏」的探测器而不是随机性的容忍带）。
 
 运行方式（项目根）：python -m src.transport_decisions
 数据类别：情景假设（成本参数与订单需求）+ 真实观测（Olist 派生的异常标定），见台账。
@@ -495,9 +496,10 @@ def _plan_record(
         "cost": {m: {"total": k["cost"][m]["total"], "per_order": k["cost"][m]["per_order"]}
                  for m in ("diesel", "ev")},
         "solve_time_limit_sec": time_limit_sec,
-        # 记下**真正的**停止条件（主条件），否则产物里只剩一个 300 秒的安全网，
-        # 读的人会以为「这个解是跑 300 秒跑出来的」（ADR-0015）。
-        "solve_solution_limit": C.VRPTW_SOLUTION_LIMIT,
+        # 记下**真正的**停止条件（主条件），否则产物里只剩一个 300 秒的安全网，读的人会
+        # 以为「这个解是跑 300 秒跑出来的」（ADR-0015）。基线臂是最近邻贪心、**没有求解器**，
+        # 故那里两个字段都是 None——给它填 500 会让同一条记录自相矛盾。
+        "solve_solution_limit": C.VRPTW_SOLUTION_LIMIT if time_limit_sec is not None else None,
     }
 
 
@@ -744,7 +746,8 @@ def run_all(
 ) -> dict:
     """跑通模块二（下）全流程并落盘。
 
-    `levels` / `whatif_time_limit_sec` 仅用于测试压缩耗时，默认按 config 的 16 档与 30 秒。
+    `levels` / `whatif_time_limit_sec` 仅用于测试压缩耗时（后者是**墙钟安全网**，传小值
+    会让安全网先触发、结果不可复现），默认按 config 的 16 档与解数停止。
     """
     ctx = load_decision_context()
     anomalies, trips = ctx["anomalies"], ctx["trips"]

@@ -9,7 +9,7 @@
      （禁止直线距离）跑全 90 天，记录总里程 / 用车数 / 总成本 / 时间窗达成率。
   ③ **优化策略**：代表日（90 天中订单量最大的工作日，ADR-0003）用 OR-Tools 求解 VRPTW——
      节点 = POI、需求聚合（同店当日多单重量体积求和、时间窗取最优点访窗、单点一访，ADR-0004），
-     约束含载重 / 容积 / 时间窗 / 单车从单一 DC 出发返回，时限 30 秒，
+     约束含载重 / 容积 / 时间窗 / 单车从单一 DC 出发返回，按**解数**停止（ADR-0015），
      目标 = 固定成本 + 里程成本，**建模逻辑与 05 号票的 Solomon 验证同构**。
   ④ 代表日优化前后对比表 + 两套路线 GeoJSON；单趟节省 → 月/年金额换算（外推假设登记台账）。
 
@@ -756,7 +756,7 @@ def _write_report(kpi: dict, comparison: pd.DataFrame, savings: dict, out_path: 
         f"这些点的时间窗在 08:00 发车后车辆可抵达之前就已关闭，基线贪心直接跳过。"
         f"全量口径如实计入 `n_orders_unserved`，**不粉饰为「已覆盖」**；"
         f"代表日恰无此情形，故该缺陷只在全量口径下暴露",
-        f"- 优化仅对代表日精算（30 秒时限），其余 89 天按 ADR-0003 用基线覆盖、"
+        f"- 优化仅对代表日精算（按解数停止，ADR-0015），其余 89 天按 ADR-0003 用基线覆盖、"
         f"按代表日单均节省率外推——**不外推为真实财务承诺**",
         "",
         "## 五、产物",
@@ -915,6 +915,9 @@ def run_all(out_dir: Path | None = None, time_limit_sec: float | None = None) ->
         "matrix_source": ctx["matrix_source"],
         "baseline_rule": C.TRANSPORT_BASELINE_RULE,
         "solve": {
+            # 主停止条件是解数，时限只是安全网。两个都记——只记 300 秒会让读的人以为
+            # 这个解是跑 300 秒跑出来的（ADR-0015）。
+            "solution_limit": C.VRPTW_SOLUTION_LIMIT,
             "time_limit_sec": time_limit_sec or C.VRPTW_TIME_LIMIT_SEC,
             "first_solution_strategy": "PARALLEL_CHEAPEST_INSERTION",
             "local_search": "GUIDED_LOCAL_SEARCH",
@@ -964,7 +967,7 @@ def run_all(out_dir: Path | None = None, time_limit_sec: float | None = None) ->
 def write_daily_only(out_dir: Path | None = None) -> Path:
     """只重算并落盘逐日基线 KPI 表，**不动代表日优化结果**。
 
-    存在的理由：逐日表是驾驶舱的必需品，但它与代表日的 30 秒启发式搜索完全无关
+    存在的理由：逐日表是驾驶舱的必需品，但它与代表日的启发式搜索完全无关
     （见 `daily_baseline_kpis`）。如果为了补这张表而重跑 `run_all`，就会把
     `transport_kpi.json` 里那个「某一次搜索的解」一并换掉，连带 10/11 号票已发表的
     里程与成本全部作废——那是拿确定性的产物去陪跑一个不确定的搜索。
