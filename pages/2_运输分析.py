@@ -35,7 +35,6 @@ import streamlit as st
 st.set_page_config(page_title="运输分析 · 区域仓配中心", page_icon="🚚", layout="wide")
 
 import folium  # noqa: E402
-from streamlit.components.v1 import html as st_html  # noqa: E402
 
 from src import config as C  # noqa: E402
 from src.dashboard import charts as CH  # noqa: E402
@@ -185,7 +184,7 @@ st.caption(
     "Folium 真实地图（OpenStreetMap 底图），蓝色为「优化前」、橙色为「优化后」——"
     "与全页其余图表的方案槽位一致。每条折线是一趟车的行驶路径（DC → 各门店 → 回 DC）；"
     "圆点是配送门店，点开可看该点的**时间窗**与**计划到达时刻**。时间窗与到达时刻在产物里都是"
-    "当日分钟数，这里转成 HH:MM。本页未安装 `streamlit-folium`，故用 `components.v1.html` 渲染"
+    "当日分钟数，这里转成 HH:MM。本页未安装 `streamlit-folium`，故用 `st.iframe` 渲染"
     "Folium 自带 HTML。"
 )
 
@@ -249,7 +248,9 @@ folium.CircleMarker(
     tooltip="区域仓配中心（DC）", popup="冷链城配 DC：代表日各趟车由此发车并回场",
 ).add_to(_fmap)
 
-st_html(_fmap._repr_html_(), height=520)
+# 传的是 folium 由**本页自己的数据**生成的 HTML，不是外部输入——`st.iframe` 会以可执行 JS
+# 的同源 iframe 嵌入，故来源必须可信（`components.v1.html` 的旧写法是同一套机制）。
+st.iframe(_fmap._repr_html_(), height=520)
 
 _map_trips = D.artifact("transport_trips")
 _map_tbl = (_map_trips[_map_trips["plan"] == _plan]
@@ -265,7 +266,7 @@ st.caption(
     f"总成本 {_map_tbl['趟成本 (元)'].sum():,.2f} 元（逐趟明细见下表）。"
 )
 with st.expander(f"{PLAN_LABEL[_plan]}逐趟明细数据表"):
-    st.dataframe(_map_tbl, use_container_width=True, hide_index=True)
+    st.dataframe(_map_tbl, width="stretch", hide_index=True)
 
 st.divider()
 
@@ -510,7 +511,7 @@ else:
                     "5% 下显著": "是" if _d["significant_at_5pct"] else "否",
                 })
             if _pt_rows:
-                st.dataframe(pd.DataFrame(_pt_rows), use_container_width=True, hide_index=True)
+                st.dataframe(pd.DataFrame(_pt_rows), width="stretch", hide_index=True)
                 _rep = (_pts.get("weekly_replication") or {})
                 _fr = _rep.get("friday_late") or {}
                 _r7 = _rep.get("r07_anomaly") or {}
@@ -587,7 +588,7 @@ _by_plan = _by_plan[[
     "n_trips_self_cheaper": "自营更省趟数", "n_trips_outsource_cheaper": "外包更省趟数",
     "n_trips_tie": "持平趟数", "best_mode": "自营较省模式",
 })
-st.dataframe(_by_plan, use_container_width=True, hide_index=True)
+st.dataframe(_by_plan, width="stretch", hide_index=True)
 st.caption(
     f"当前主口径为 **{PLAN_LABEL.get(_outs['primary_plan'], _outs['primary_plan'])}**："
     f"全部 {_by_plan['趟次'].sum()} 趟里自营更省 "
@@ -606,7 +607,7 @@ with st.expander("逐趟对照明细数据表（自营 / 货拉拉）"):
             "self_best_mode": "自营较省模式", "huolala_cost": "货拉拉 (元)",
             "delta_pct_vs_huolala": "自营 vs 货拉拉 (%)", "verdict": "结论",
         }),
-        use_container_width=True, hide_index=True,
+        width="stretch", hide_index=True,
     )
 st.caption(
     "**口径提醒**：自营单趟成本的分摊口径见上方引自产物的 `outsourcing.basis`（含「代表日每台车"

@@ -92,12 +92,12 @@ def chart_block(fig: go.Figure, *, caption: str | None = None,
                 height: int = 300) -> None:
     """图 + 口径说明 + 表格视图。表格视图是规范要求的缓解手段，缺它就等于图不可读。"""
     fig.update_layout(height=height)
-    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+    st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
     if caption:
         st.caption(caption)
     if table is not None and not table.empty:
         with st.expander(table_label):
-            st.dataframe(table, use_container_width=True, hide_index=True)
+            st.dataframe(table, width="stretch", hide_index=True)
 
 
 def metric_trend(

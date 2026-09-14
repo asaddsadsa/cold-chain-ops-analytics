@@ -113,7 +113,7 @@ trend_table = (
     .sort_values("date")
 )
 with st.expander("趋势数据表（上图全部数值）"):
-    st.dataframe(trend_table, use_container_width=True, hide_index=True)
+    st.dataframe(trend_table, width="stretch", hide_index=True)
 
 st.divider()
 
@@ -136,7 +136,7 @@ st.caption(
 UI.warning_list(rows)
 if not rows.empty:
     with st.expander("预警清单数据表"):
-        st.dataframe(rows, use_container_width=True, hide_index=True)
+        st.dataframe(rows, width="stretch", hide_index=True)
 
 st.divider()
 
