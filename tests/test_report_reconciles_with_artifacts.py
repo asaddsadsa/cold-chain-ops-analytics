@@ -98,6 +98,34 @@ class TestReportReconcilesWithArtifacts:
         tco = D.artifact("transport_tco")
         assert f"{tco['breakeven_km']['km']:.1f} km" in _report()
 
+    def test_staffing_knee_and_duration_breakdown(self):
+        """C-4：人力档位的作业时长、CI、边际收益与时长分解。
+
+        这一条是 2026-09-15 补的。C-4 的数字那一轮改过两遍（先统一到达强度、再补上波次
+        释放环节），而对账测试当时只覆盖到别的小节——报告的 C-4 表格是手写的，没有任何
+        东西比对。**正是这次「没人比对」让一组过期的净值留在了 07 号票的表格里**，
+        所以这条测试的直接目的就是：让报告里这一节也进入对账范围。
+        """
+        exp2 = D.artifact("sim_exp2")
+        text = _report()
+        arms = {a["n_pickers"]: a["metrics"] for a in exp2["arms"]}
+
+        for n in C.SIM_PICKER_LEVELS:
+            m = arms[n]["avg_fulfillment_sec"]
+            assert f"{m['mean']:.1f}" in text, f"{n} 人作业时长"
+            assert f"{m['ci95_low']:.1f}" in text, f"{n} 人 CI 下界"
+            assert f"{m['ci95_high']:.1f}" in text, f"{n} 人 CI 上界"
+        for m in exp2["tradeoff"]["marginals"]:
+            assert f"{m['sec_saved_per_yuan']:.4f}" in text, "边际收益（秒/元）"
+
+        # 时长分解：报告拿它说明「最大的一段与人数无关」，所以那两段数字必须在报告里。
+        base = C.SIM_PICKER_LEVELS[0]
+        wave = arms[base]["avg_wave_wait_sec"]["mean"]
+        e2e = arms[base]["avg_order_to_ship_sec"]["mean"]
+        assert f"{wave:,.0f}" in text, "波次累积等待"
+        assert f"{e2e:,.0f}" in text, "端到端时长"
+        assert f"{wave / e2e:.0%}" in text, "波次等待占端到端的比例"
+
 
 class TestReportDoesNotInheritUnbackedClaims:
     """报告里的类别与口径必须与产物同源，不能自己发明一个数。"""

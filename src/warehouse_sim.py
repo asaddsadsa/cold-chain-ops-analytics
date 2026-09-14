@@ -229,7 +229,6 @@ def _order_process(
         yield req
         pick_start = env.now
         rec["queue_waits"].append(pick_start - release)
-        pick_start = env.now
         walk_total = 0.0
         for sku in line_skus:
             walk = layout[sku] / C.WALK_SPEED_M_PER_SEC
@@ -256,6 +255,7 @@ def _order_process(
         yield env.timeout(rng.triangular(*C.PACK_TRIANGULAR))
     ship = env.now
 
+    rec["review_secs"].append(ship - pick_end)
     rec["fulfillment_secs"].append(ship - release)
     rec["order_to_ship_secs"].append(ship - arrive)
     rec["arrivals"].append(arrive)
@@ -297,7 +297,7 @@ def run_one_sim(
         "line_pick_secs": [], "line_slow": [], "order_pick_secs": [],
         "order_walk_m": [], "fulfillment_secs": [], "order_to_ship_secs": [],
         "arrivals": [], "releases": [], "ships": [],
-        "wave_waits": [], "queue_waits": [],
+        "wave_waits": [], "queue_waits": [], "review_secs": [],
         "picker_busy": 0.0,
     }
     for arrival_sec, line_skus in orders:
@@ -329,7 +329,10 @@ def run_one_sim(
         "avg_order_to_ship_sec": float(np.mean(e2e)),
         "avg_wave_wait_sec": float(np.mean(wave_waits)),
         "avg_queue_wait_sec": float(np.mean(queue_waits)),
-        "avg_order_wait_sec": float(np.mean(e2e - ful)),
+        # 复核段 = 拣货完成 → 发货（等复核台 + 复核打包）。单独记是因为它**不随加人下降**：
+        # 拣货侧加到 6 人时它反而上升，瓶颈转到了复核台——那是「加人到头了」的信号，
+        # 藏在作业总时长里看不出来。
+        "avg_review_sec": float(np.mean(rec["review_secs"])),
         "fulfillment_cv": float(np.std(ful) / np.mean(ful)) if np.mean(ful) > 0 else 0.0,
         "fulfillment_skew": float(stats.skew(ful)),
         "picker_utilization": float(util),
@@ -384,7 +387,7 @@ def run_experiment_arm(
                                 wave_interval_min=wave_interval_min))
     metrics = ["avg_order_pick_sec", "total_walk_m", "avg_walk_m_per_order",
                "avg_fulfillment_sec", "avg_order_to_ship_sec",
-               "avg_wave_wait_sec", "avg_queue_wait_sec",
+               "avg_wave_wait_sec", "avg_queue_wait_sec", "avg_review_sec",
                "picker_utilization", "fulfillment_cv", "fulfillment_skew",
                "line_pick_sec_mean", "line_pick_sec_cv"]
     agg = {m: aggregate_repeats(runs, m) for m in metrics}
@@ -528,7 +531,7 @@ def calibrate_wave_window(outbound_csv: Path, wave_interval_min: float) -> dict:
     first = ob.groupby("order_id").agg(order_time=("order_time", "min"),
                                        pick_start=("pick_start", "min"))
     per_order_lag = (first["pick_start"] - first["order_time"]).dt.total_seconds()
-    param_mean_min = sum(C.WAREHOUSE_RELEASE_DELAY_MIN) / 2
+    param_mean_min = C.WAREHOUSE_RELEASE_DELAY_MEAN_MIN
     return {
         "wave_interval_min": wave_interval_min,
         "expected_wave_wait_min": round(wave_interval_min / 2, 1),
@@ -680,6 +683,7 @@ def run_all_experiments(
         "avg_wave_wait_sec": a["metrics"]["avg_wave_wait_sec"],
         "avg_queue_wait_sec": a["metrics"]["avg_queue_wait_sec"],
         "avg_pick_sec": a["metrics"]["avg_order_pick_sec"],
+        "avg_review_sec": a["metrics"]["avg_review_sec"],
         "picker_utilization": a["metrics"]["picker_utilization"],
         "daily_labor_cost": a["n_pickers"] * C.PICKER_DAILY_COST,
     } for a in exp2_arms}

@@ -487,11 +487,18 @@ _arms = sorted(staffing.keys(), key=lambda k: int(k))
 _pick = st.select_slider("拣货员人数（预计算档位，切换不重算仿真）",
                          options=_arms, value=_arms[len(_arms) // 2])
 _sel = staffing[_pick]
+# 时长拆开看：端到端里最大的一段是波次累积等待，它由**作业组织**（波次窗口）决定、与人数
+# 无关。四段都是产物自带字段，页面只取数、不重算（ADR-0014）。口径也不能只说「履约时长」
+# ——作业段与端到端是两个数（见 CONTEXT.md「履约时长（两个口径，不可混用）」）。
+_review_by = {_a: staffing[_a]["avg_review_sec"]["mean"] for _a in _arms}
 _staff_tbl = pd.DataFrame([{
     "拣货员人数": int(_a),
-    "平均履约时长(秒/单)": staffing[_a]["avg_fulfillment_sec"]["mean"],
+    "波次累积等待(秒)": staffing[_a]["avg_wave_wait_sec"]["mean"],
+    "等拣货员(秒)": staffing[_a]["avg_queue_wait_sec"]["mean"],
+    "作业段 释放→发货(秒)": staffing[_a]["avg_fulfillment_sec"]["mean"],
     "CI 下界": staffing[_a]["avg_fulfillment_sec"]["ci95_low"],
     "CI 上界": staffing[_a]["avg_fulfillment_sec"]["ci95_high"],
+    "端到端 到达→发货(秒)": staffing[_a]["avg_order_to_ship_sec"]["mean"],
     "拣货员利用率": staffing[_a]["picker_utilization"]["mean"],
     "日人力成本(元)": staffing[_a]["daily_labor_cost"],
 } for _a in _arms])
@@ -499,20 +506,25 @@ _staff_tbl = pd.DataFrame([{
 UI.chart_block(
     CH.bar_chart([f"{_a} 人" for _a in _arms],
                  [staffing[_a]["avg_fulfillment_sec"]["mean"] for _a in _arms],
-                 label="平均订单履约时长", unit=" 秒/单",
+                 label="平均作业时长", unit=" 秒/单",
                  highlight={f"{_pick} 人": theme.series(1)}),
     caption=(
-        f"当前选中 {_pick} 人档（以序列色高亮该柱，属强调而非取值编码）：平均履约 "
-        f"{_sel['avg_fulfillment_sec']['mean']:.1f} 秒/单（95% CI "
-        f"{_sel['avg_fulfillment_sec']['ci95_low']:.1f}–{_sel['avg_fulfillment_sec']['ci95_high']:.1f}），"
+        f"当前选中 {_pick} 人档（以序列色高亮该柱，属强调而非取值编码）：**作业段**"
+        f"（释放→发货）{_sel['avg_fulfillment_sec']['mean']:.1f} 秒/单（95% CI "
+        f"{_sel['avg_fulfillment_sec']['ci95_low']:.1f}–"
+        f"{_sel['avg_fulfillment_sec']['ci95_high']:.1f}），"
+        f"端到端（到达→发货）{_sel['avg_order_to_ship_sec']['mean']:.0f} 秒/单"
+        f"——两者的差额是波次累积等待，加多少人都不动它。"
         f"拣货员利用率 {_sel['picker_utilization']['mean']:.1%}，"
         f"日人力成本 {_sel['daily_labor_cost']:.0f} 元。"
+        # 拐点有没有由产物说了算（见 `warehouse_sim.tradeoff_curve_and_knee`）
         + (f"边际收益递减，**拐点在 {_knee} 人**：" if _knee else
            "**各档边际收益都很小、且不呈递减——这个业务量下分不出拐点**：")
         + f"{_m0['from_pickers']}→{_m0['to_pickers']} 人"
         f"每投入 1 元省 {_m0['sec_saved_per_yuan']:.4f} 秒，{_m1['from_pickers']}→"
         f"{_m1['to_pickers']} 人 {_m1['sec_saved_per_yuan']:.4f} 秒。"
-        "该图无日期/品类/片区维度，不受全局筛选影响。"
+        f"复核段随人数从 {_review_by[_arms[0]]:.0f} 秒升到 {_review_by[_arms[-1]]:.0f} 秒，"
+        "说明瓶颈已不在拣货侧。该图无日期/品类/片区维度，不受全局筛选影响。"
     ),
     table=_staff_tbl,
     table_label="人力档位数据表",

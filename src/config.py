@@ -110,6 +110,9 @@ WAREHOUSE_PEAK_INTENSITY: float = 1.8
 #: 换不来任何改善。提到 config 是为了让两层**共用一个数**，而不是各自记着「与另一层一致」。
 WAREHOUSE_RELEASE_DELAY_MIN: tuple[float, float] = (10.0, 40.0)
 
+#: 释放延迟的均值（分钟）——波次窗口的校准基准，单独命名是为了让下面那条推导读得出来。
+WAREHOUSE_RELEASE_DELAY_MEAN_MIN: float = sum(WAREHOUSE_RELEASE_DELAY_MIN) / len(WAREHOUSE_RELEASE_DELAY_MIN)
+
 #: 数据层 F 的**波次窗口**（分钟）：订单在窗内累积，到窗界才批量投入拣货队列。
 #:
 #: 取值是从锚点校准出来的，不是挑的：层 A 实测「下单 → 开始拣货」平均等待 ≈ 1500 秒
@@ -124,7 +127,7 @@ WAREHOUSE_RELEASE_DELAY_MIN: tuple[float, float] = (10.0, 40.0)
 #: 本模型**只建模了波次的等待成本，没建模它的合并拣货收益**（一次波次内多单合并成一条
 #: 行走路径）。因此这里的取值**不能**被读作「W 越小越好」——真实系统里 W 变大还有省行走
 #: 的一侧，本模型没有它。见 `data_sources_ledger.md` 与 `exp2_staffing.json` 的 limitations。
-WAREHOUSE_WAVE_INTERVAL_MIN: float = 2.0 * (sum(WAREHOUSE_RELEASE_DELAY_MIN) / 2.0)
+WAREHOUSE_WAVE_INTERVAL_MIN: float = 2.0 * WAREHOUSE_RELEASE_DELAY_MEAN_MIN
 
 # DC 设定：成都青白江物流聚集区（教学模拟，非真实企业设施）
 DC_FALLBACK_LNG: float = 104.2510  # 青白江城区坐标（高德地理编码失败时降级用）

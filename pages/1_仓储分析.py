@@ -317,25 +317,22 @@ _wave_min = exp2["wave_interval_min"]
 _m0, _m1 = _trade["marginals"][0], _trade["marginals"][1]
 
 
-def _review_sec(s: dict) -> float:
-    """复核段 = 作业时长（释放→发货）− 等拣货员 − 拣货。"""
-    return s["avg_fulfillment_sec"]["mean"] - s["avg_queue_wait_sec"]["mean"] - s["avg_pick_sec"]["mean"]
-
-
 # 时长按环节拆开，而不只看总高：端到端里最大的一段是**波次累积等待**，它由作业组织
 # （波次窗口）决定、加多少人都不会动；人力能压的只有「等拣货员」那一段。不拆开，
 # 「加人到底改了什么」在图上没有答案。
+# 四段全是产物自带字段，页面只取数、不重算——看板层不含任何 KPI 公式（ADR-0014）。
+_review_by = {_a: whatif[_a]["avg_review_sec"]["mean"] for _a in _arms}
 _staff_tbl = pd.DataFrame([{
     "拣货员人数": int(_a),
     "波次累积等待(秒)": whatif[_a]["avg_wave_wait_sec"]["mean"],
     "等拣货员(秒)": whatif[_a]["avg_queue_wait_sec"]["mean"],
     "拣货(秒)": whatif[_a]["avg_pick_sec"]["mean"],
-    "复核(秒)": _review_sec(whatif[_a]),
+    "复核(秒)": _review_by[_a],
     "端到端合计(秒)": whatif[_a]["avg_order_to_ship_sec"]["mean"],
     "拣货员利用率": whatif[_a]["picker_utilization"]["mean"],
     "日人力成本(元)": whatif[_a]["daily_labor_cost"],
 } for _a in _arms])
-_rev_lo, _rev_hi = _review_sec(whatif[_arms[0]]), _review_sec(whatif[_arms[-1]])
+_rev_lo, _rev_hi = _review_by[_arms[0]], _review_by[_arms[-1]]
 
 UI.chart_block(
     CH.stacked_bars(
@@ -344,7 +341,7 @@ UI.chart_block(
             "波次累积等待": [whatif[_a]["avg_wave_wait_sec"]["mean"] for _a in _arms],
             "等拣货员": [whatif[_a]["avg_queue_wait_sec"]["mean"] for _a in _arms],
             "拣货": [whatif[_a]["avg_pick_sec"]["mean"] for _a in _arms],
-            "复核": [_review_sec(whatif[_a]) for _a in _arms],
+            "复核": [_review_by[_a] for _a in _arms],
         },
         unit=" 秒/单",
     ),

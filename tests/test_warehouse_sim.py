@@ -265,7 +265,7 @@ class TestReleaseIsSharedWithLayerA:
         这条会红，逼他同时想清楚 W 该怎么办。
         """
         assert C.WAREHOUSE_WAVE_INTERVAL_MIN == pytest.approx(
-            2 * (sum(C.WAREHOUSE_RELEASE_DELAY_MIN) / 2))
+            2 * C.WAREHOUSE_RELEASE_DELAY_MEAN_MIN)
 
 
 class TestWaveRelease:

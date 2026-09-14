@@ -108,7 +108,7 @@
 | # | 措施 | 对应问题 | 具体做法 | 实现位置 |
 |---|---|---|---|---|
 | D-1 | **库位重排** | P-3 | 以 Σ(出库频次 × 库位距离) 为目标函数，用重排不等式（频次降序 ↔ 距离升序）直接求得最优配对；库位集合不变 | `src/warehouse_kpi.py::optimize_slotting` |
-| D-2 | **VRPTW 路径优化** | P-4 | 节点=POI、需求聚合（同店当日多单合并）、单点一访；载重+容积+时间窗+单 DC 往返约束；目标=固定成本+里程成本，30 秒时限；建模与 Solomon 验证同构 | `src/transport_optimize.py::solve_vrptw` |
+| D-2 | **VRPTW 路径优化** | P-4 | 节点=POI、需求聚合（同店当日多单合并）、单点一访；载重+容积+时间窗+单 DC 往返约束；目标=固定成本+里程成本，按**解数**停止（ADR-0015）；建模与 Solomon 验证同构 | `src/transport_optimize.py::solve_vrptw` |
 | D-3 | **周度异常复盘机制** | P-5 | 按 ISO 周输出异常类型分布与典型案例清单，并对周五/R07/雨日三个靶点做池化与逐周的显著性检验，使「哪一周出了问题」可被当周发现 | `src/transport_decisions.py::weekly_anomaly_summary` |
 | D-4 | **人力配置优化** | P-1 | SimPy 离散事件仿真（非齐次泊松到达 →**波次批量释放**→ 拣货 → 复核打包 → 发货），对 4/5/6 人各重复 30 次并报 95% CI，找时长—人力成本的拐点 | `src/warehouse_sim.py::run_all_experiments` |
 
