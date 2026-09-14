@@ -99,11 +99,12 @@ def sidebar() -> Filters:
         window = _preset_window(last_day, preset, ())
 
     codes = list(C.REGION_CODES)
-    if D.regions().shape[0]:
-        codes = [c for c in D.regions()["region"].tolist()] or codes
+    regions_df = D.artifact("regions")
+    if regions_df.shape[0]:
+        codes = [c for c in regions_df["region"].tolist()] or codes
     regions = st.sidebar.multiselect("配送区域", codes, default=[], placeholder="全部片区")
 
-    sku = D.sku_master()
+    sku = D.artifact("sku_master")
     if sku.empty:
         st.sidebar.multiselect("品类", [], disabled=True,
                                help="需要数据层 A 的 sku_master（python -m src.gen_warehouse_data）")
@@ -112,7 +113,7 @@ def sidebar() -> Filters:
         cats = sorted(sku["category"].dropna().unique().tolist())
         categories = tuple(st.sidebar.multiselect("品类", cats, default=[], placeholder="全部品类"))
 
-    tco = D.transport_tco()
+    tco = D.artifact("transport_tco")
     rec = (tco.get("recommendation") or {}).get("recommended_mode", "ev")
     mode_label = kpis.MODE_LABELS
     picked_mode = st.sidebar.radio(

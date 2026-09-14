@@ -36,7 +36,8 @@ UI.context_bar(f, "日期范围作用于 KPI 卡片与趋势图；配送区域�
 # ---------------------------------------------------------------------------
 # 一、KPI 卡片（需求 43）
 # ---------------------------------------------------------------------------
-wh_daily, tr_daily = D.warehouse_daily(), D.transport_daily()
+wh_daily = D.artifact("warehouse_daily")
+tr_daily = D.artifact("transport_daily")
 metrics = kpis.build_metrics(wh_daily, tr_daily, f.window, cost_mode=f.cost_mode)
 UI.kpi_cards(metrics)
 
@@ -120,7 +121,7 @@ st.divider()
 # 三、最新异常预警清单（需求 43）
 # ---------------------------------------------------------------------------
 st.subheader("最新异常预警")
-anom = F.apply_regions(D.anomalies(), f)
+anom = F.apply_regions(D.artifact("anomalies"), f)
 in_win = anom[
     (anom["date"] >= f.window.start.normalize()) & (anom["date"] <= f.window.end.normalize())
 ]

@@ -27,28 +27,16 @@ from src.dashboard import kpis, theme  # noqa: E402
 
 theme.register_plotly_template()
 
-# 本页真正吃到的产物：仓内 KPI/日表、库位与出库、仿真对照实验、Olist 履约。
+# 本页真正吃到的产物：仓内 KPI/日表与三张下钻、库位与出库、仿真对照实验、Olist 履约。
 # delivery_orders / regions 是共享侧边栏与 D.order_window() 的依赖，一并声明。
 D.require_artifacts((
-    "warehouse_kpi", "warehouse_daily", "location_master", "outbound",
+    "warehouse_kpi", "warehouse_daily",
+    "warehouse_abc_pareto", "warehouse_picking_hour", "warehouse_stocktake_category",
+    "location_master", "outbound",
     "sim_exp1", "sim_exp2", "sim_whatif",
     "olist_overall", "olist_state", "olist_orders",
     "delivery_orders", "regions",
 ))
-
-# 仓内 KPI 的三张下钻表与 ABC 帕累托没有单列产物 key（同由 `python -m src.warehouse_kpi`
-# 产出）。这里显式补一次存在性检查——缺产物要报错停下，绝不显示 0 冒充。
-_extra = {
-    "abc_pareto": C.WAREHOUSE_ABC_PARETO_CSV,
-    "drilldown_picking_hour": C.WAREHOUSE_DRILLDOWN_HOUR_CSV,
-    "drilldown_stocktake_category": C.WAREHOUSE_DRILLDOWN_CATEGORY_CSV,
-}
-_missing_extra = {k: p for k, p in _extra.items() if not p.exists()}
-if _missing_extra:
-    st.error("缺少仓储分析下钻产物，无法给出可信数字（不显示 0 或其他占位值）。请在项目根运行：")
-    for _k, _p in _missing_extra.items():
-        st.markdown(f"- `{_p.relative_to(C.PROJECT_ROOT)}` ← `python -m src.warehouse_kpi`")
-    st.stop()
 
 
 def _ci_bar(labels, means, lows, highs, *, label: str, unit: str, slot: int = 0,
@@ -103,7 +91,7 @@ kpi = D.warehouse_kpi()
 # 一、逐日仓内指标（本页唯一吃「日期范围」筛选器的区块）
 # ---------------------------------------------------------------------------
 st.subheader("一、逐日仓内指标（日期范围筛选生效）")
-wh_daily = D.warehouse_daily()
+wh_daily = D.artifact("warehouse_daily")
 wh_win = kpis.slice_window(wh_daily, f.window)
 st.caption(
     f"当前区间 {f.window.start.date()} ~ {f.window.end.date()}（{f.window.days} 天），"
@@ -139,8 +127,8 @@ st.divider()
 # 二、ABC 帕累托（数据源 = 仿真仓出库行数，ADR-0002）
 # ---------------------------------------------------------------------------
 st.subheader("二、ABC 帕累托：出库行数贡献")
-abc = D.abc_pareto()
-_abc_meta = kpi["abc"]["by_class"]
+abc = D.artifact("warehouse_abc_pareto")
+_abc_meta = kpi.abc_by_class
 _a, _b, _c = (_abc_meta["A"], _abc_meta["B"], _abc_meta["C"])
 UI.chart_block(
     CH.cumulative_share_chart(
@@ -150,9 +138,9 @@ UI.chart_block(
     ),
     caption=(
         "数据源为**仿真仓出库行数**（ADR-0002），不是 Olist 商品销量。"
-        f"A 类 {_a['n_sku']} 个 SKU（{_a['sku_share']:.1%}）贡献 {_a['line_share']:.1%} 出库行数，"
-        f"B 类 {_b['n_sku']} 个贡献 {_b['line_share']:.1%}，"
-        f"C 类 {_c['n_sku']} 个仅贡献 {_c['line_share']:.1%}。"
+        f"A 类 {_a.n_sku} 个 SKU（{_a.sku_share:.1%}）贡献 {_a.line_share:.1%} 出库行数，"
+        f"B 类 {_b.n_sku} 个贡献 {_b.line_share:.1%}，"
+        f"C 类 {_c.n_sku} 个仅贡献 {_c.line_share:.1%}。"
         "横轴为频次排名（1 起，共 500 个 SKU），柱=各 SKU 出库行数占比，线=累计占比；"
         "两者同量纲，共用一根 0–100% 轴（不使用双 Y 轴）。"
         "该图无日期/品类/片区维度，不受全局筛选影响。"
@@ -168,18 +156,18 @@ st.divider()
 # 三、分时段拣货效率（必须肉眼可见 14–16 点低谷）
 # ---------------------------------------------------------------------------
 st.subheader("三、分时段拣货效率（14–16 点低谷）")
-hour_df = D.picking_by_hour()
+hour_df = D.artifact("warehouse_picking_hour")
 # 低谷时段来自配置（单一来源），不在此写死；highlight 只给这两根柱上状态色，其余用序列色
 _slow_hours = set(range(C.PICK_SLOW_HOURS[0], C.PICK_SLOW_HOURS[1]))
 _highlight = {str(h): theme.STATUS["warning"] for h in _slow_hours}
-_slow = kpi["embedding_checks"]["pick_slowdown_14_16"]
+_slow = kpi.pick_slowdown
 UI.chart_block(
     CH.bar_chart(hour_df["hour"].astype(str), hour_df["sec_per_line"],
                  label="单行拣货耗时", unit=" 秒/行", highlight=_highlight),
     caption=(
         "横轴为出库所处小时（8–18 点），纵轴为单行拣货耗时（秒/行）。"
-        f"14–16 点两根柱以状态色（⚠️ 警示）标出：该时段 {_slow['sec_per_line_14_16']:.1f} 秒/行，"
-        f"其余时段 {_slow['sec_per_line_other']:.1f} 秒/行，约 {_slow['ratio']:.2f} 倍，是埋点低谷。"
+        f"14–16 点两根柱以状态色（⚠️ 警示）标出：该时段 {_slow.sec_per_line_14_16:.1f} 秒/行，"
+        f"其余时段 {_slow.sec_per_line_other:.1f} 秒/行，约 {_slow.ratio:.2f} 倍，是埋点低谷。"
         "状态色永远配图标与文字，不靠颜色单独表意；单序列图不放图例。"
         "该图无日期/品类/片区维度，不受全局筛选影响。"
     ),
@@ -221,7 +209,7 @@ st.divider()
 # 五、盘点差异 Top10 品类（P03 居前；吃「品类」筛选器）
 # ---------------------------------------------------------------------------
 st.subheader("五、盘点差异 Top10 品类")
-_full_cat = D.stocktake_by_category()
+_full_cat = D.artifact("warehouse_stocktake_category")
 cat = _full_cat
 if f.categories:
     cat = cat[cat["category"].isin(f.categories)]
@@ -229,17 +217,17 @@ cat = cat.sort_values("rate", ascending=False).head(10)
 if cat.empty:
     st.info("当前「品类」筛选下没有盘点记录，无法绘制该图。")
 else:
-    _p03 = _full_cat.loc[_full_cat["category"] == C.HIGH_DIFF_CATEGORY, "rate"]
-    _other = _full_cat.loc[_full_cat["category"] != C.HIGH_DIFF_CATEGORY, "rate"].mean()
-    _ratio = float(_p03.iloc[0]) / _other if len(_p03) and _other else float("nan")
+    # P03 埋点比值读 KPI 产物里已算好的那一份，不在页面重算——「同一口径两处实现」
+    # 漂移时不会有东西变红（`warehouse_kpi.interpret` 已把它收进具名结构）。
+    _p03 = kpi.p03_discrepancy
     UI.chart_block(
         CH.bar_chart(cat["category"], cat["rate"] * 100, label="盘点差异率", unit="%",
                      orientation="h",
                      highlight={C.HIGH_DIFF_CATEGORY: theme.STATUS["warning"]}),
         caption=(
             "按差异率降序取前 10 个品类，横向柱状图。"
-            f"{C.HIGH_DIFF_CATEGORY}（埋点品类）以状态色标出：差异率 {_p03.iloc[0]:.2%}，"
-            f"约为其余品类均值（{_other:.2%}）的 {_ratio:.2f} 倍。"
+            f"{C.HIGH_DIFF_CATEGORY}（埋点品类）以状态色标出：差异率 {_p03.rate:.2%}，"
+            f"约为其余品类均值（{_p03.other_rate:.2%}）的 {_p03.ratio:.2f} 倍。"
             "口径：差异率 = 差异记录数 / 盘点记录数（逐记录）；"
             "与驾驶舱「库存准确率」（金额加权）是两个口径，不可互换。"
             "本图吃侧边栏「品类」筛选器。"
@@ -255,8 +243,8 @@ st.divider()
 # 六、Olist 真实履约时长分布 + 延迟州下钻
 # ---------------------------------------------------------------------------
 st.subheader("六、Olist 真实履约时长分布与延迟州下钻")
-dur = D.olist_durations()
-ov = D.olist_overall()
+dur = D.artifact("olist_orders")
+ov = D.artifact("olist_overall")
 _vals = dur["fulfillment_days"]
 _counts, _edges = np.histogram(_vals, bins=40)
 _hist_tbl = pd.DataFrame({
@@ -274,7 +262,7 @@ UI.chart_block(
     table_label="履约时长分布数据表",
 )
 
-_state = D.olist_state_drilldown().sort_values("delay_rate", ascending=False)
+_state = D.artifact("olist_state").sort_values("delay_rate", ascending=False)
 _big = _state.loc[_state["n_orders"].idxmax()]
 _small = _state.loc[_state["n_orders"].idxmin()]
 UI.chart_block(
@@ -303,7 +291,7 @@ st.caption(
     "所有数字读自预计算缓存，切换档位只切缓存、不重算仿真，故瞬时响应（ADR-0010 同哲学）。"
 )
 
-exp1 = D.sim_exp1()
+exp1 = D.artifact("sim_exp1")
 _orig = exp1["original"]["metrics"]
 _zoned = exp1["abc_zoned"]["metrics"]
 _imp = exp1["improvement"]
@@ -357,7 +345,7 @@ with _e1[1]:
     )
 
 st.markdown("**实验二 / 人力 what-if：拣货员人数档位**")
-whatif = D.sim_whatif_staffing()
+whatif = D.artifact("sim_whatif")
 _arms = sorted(whatif.keys(), key=lambda k: int(k))
 _pick = st.select_slider("拣货员人数（预计算档位，切换不重算仿真）",
                          options=_arms, value=_arms[len(_arms) // 2])
@@ -371,7 +359,7 @@ _staff_tbl = pd.DataFrame([{
     "日人力成本(元)": whatif[_a]["daily_labor_cost"],
 } for _a in _arms])
 
-exp2 = D.sim_exp2()
+exp2 = D.artifact("sim_exp2")
 _trade = exp2["tradeoff"]
 _m0, _m1 = _trade["marginals"][0], _trade["marginals"][1]
 

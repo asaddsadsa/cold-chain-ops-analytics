@@ -66,23 +66,11 @@ D.require_artifacts((
     "transport_tco",              # 双模式 TCO 曲线、盈亏平衡里程、外包对照
     "transport_weekly",           # 周度异常表（含周五 / R07 埋点列）
     "transport_routes_optimized",  # 路线 GeoJSON（优化后）
+    "transport_routes_baseline",   # 路线 GeoJSON（优化前，地图 radio 可切）
+    "transport_anomaly_points",   # 埋点池化检验（周五 / R07 / 雨日）
+    "poi",                        # POI 名称（地图弹窗的显示名）
     "anomalies",                  # 在途异常表（异常构成 / 温控达标率 / 片区）
 ))
-
-# `data.py` 的产物清单未登记以下三个文件（前两个是 11 号票产物、POI 是地理参照而非 KPI 读数），
-# 这里就地补一次「缺了就停」的检查，语义与 `require_artifacts` 完全一致：列出缺哪个、跑哪条命令。
-_EXTRA_ARTIFACTS: tuple[tuple, ...] = (
-    (C.TRANSPORT_ROUTES_BASELINE_GEOJSON, "python -m src.transport_optimize"),
-    (C.TRANSPORT_ANOMALY_POINTS_JSON, "python -m src.transport_decisions"),
-    (C.POI_CSV, "python -m src.geo_poi"),
-)
-_missing_extra = [p for p, _ in _EXTRA_ARTIFACTS if not p.exists()]
-if _missing_extra:
-    st.error("缺少本页需要的产物，看板无法给出可信数字（不显示 0 或其他占位值）。请在项目根运行：")
-    for path, hint in _EXTRA_ARTIFACTS:
-        if not path.exists():
-            st.markdown(f"- `{path.relative_to(C.PROJECT_ROOT)}` ← `{hint}`")
-    st.stop()
 
 
 # ---------------------------------------------------------------------------
@@ -181,7 +169,7 @@ def _hhmm(minutes) -> str:
 _kpi = D.transport_kpi()
 UI.page_header(
     "运输分析",
-    f"区域冷链城配 · 代表日 {_kpi['representative_day']}（{C.SIM_DAYS} 天中订单量最大的工作日）的"
+    f"区域冷链城配 · 代表日 {_kpi.representative_day}（{C.SIM_DAYS} 天中订单量最大的工作日）的"
     "基线派车 vs OR-Tools 优化 · 全部数字来自 data/processed/ 产物文件，可逐项溯源",
 )
 
@@ -196,9 +184,9 @@ UI.context_bar(
 
 st.caption(
     f"**关键口径**：① 路线地图、前后对比、满载率分布、TCO 与外包对照均为**代表日 "
-    f"{_kpi['representative_day']} 单日**口径，OR-Tools 的完整精算只在该日进行；其余 "
-    f"{_kpi['baseline_all_days']['days']} 天由基线贪心覆盖全量里程/成本。"
-    f"② 「时间窗达成率」口径为**{_kpi['baseline']['time_window']['basis']}**，与 Olist 侧的"
+    f"{_kpi.representative_day} 单日**口径，OR-Tools 的完整精算只在该日进行；其余 "
+    f"{_kpi.all_days} 天由基线贪心覆盖全量里程/成本。"
+    f"② 「时间窗达成率」口径为**{_kpi.baseline.time_window_basis}**，与 Olist 侧的"
     "「真实准时交付率」是两个口径，不可互换（见 CONTEXT.md）。"
 )
 
@@ -222,7 +210,7 @@ _plan = st.radio(
 )
 
 # 门店名一律经取数层取——页面自行读盘会绕开 mtime 缓存键，产物更新后这一处不会自动失效
-_poi = D.poi_table()
+_poi = D.artifact("poi")
 _poi_name = dict(zip(_poi["poi_id"], _poi["name"]))
 
 _geojson = D.routes_geojson(_plan)
@@ -278,7 +266,7 @@ folium.CircleMarker(
 
 st_html(_fmap._repr_html_(), height=520)
 
-_map_trips = D.transport_trips()
+_map_trips = D.artifact("transport_trips")
 _map_tbl = (_map_trips[_map_trips["plan"] == _plan]
             [["trip_id", "mode", "n_stops", "n_orders", "load_kg", "load_rate",
               "distance_km", "duration_min", "trip_cost"]]
@@ -305,7 +293,7 @@ st.caption(
     "里程、用车数、成本下降是好事，比率类上升才是好事——图的副标题已把方向与好坏分开写明。"
 )
 
-_cmp = D.transport_comparison()
+_cmp = D.artifact("transport_comparison")
 
 
 def _cmp_row(prefix: str) -> pd.Series | None:
@@ -334,7 +322,7 @@ with _c0:
     )
 with _c1:
     _r = _cmp_row("用车数")
-    _trips_by_plan = D.transport_trips().groupby("plan").size().to_dict()
+    _trips_by_plan = D.artifact("transport_trips").groupby("plan").size().to_dict()
     UI.chart_block(
         _compare_bars(float(_r["baseline"]), float(_r["optimized"]), unit="台", decimals=0,
                       change_pct=float(_r["change_pct"]), lower_is_better=True),
@@ -399,7 +387,7 @@ st.divider()
 # 三、满载率分布（按方案分组的小倍数直方图）
 # ---------------------------------------------------------------------------
 st.subheader("满载率分布")
-_trips = D.transport_trips()
+_trips = D.artifact("transport_trips")
 _n_by_plan = _trips.groupby("plan").size().to_dict()
 st.caption(
     "两组是同一量纲（满载率 %），**可以**画在一起；这里选择两个小倍数图，理由：两个方案的趟次"
@@ -435,7 +423,7 @@ st.divider()
 # 四、异常构成 + 周度埋点
 # ---------------------------------------------------------------------------
 st.subheader("在途异常构成与周度埋点")
-_anom_all = F.apply_regions(D.anomalies(), f)
+_anom_all = F.apply_regions(D.artifact("anomalies"), f)
 _anom = kpis.slice_window(_anom_all, f.window)
 _anom_only = _anom[_anom["anomaly_type"] != "无异常"]
 
@@ -488,7 +476,7 @@ with _p1:
         )
 
 st.markdown(f"**周度埋点：周五午后拥堵 与 {C.HIGH_ANOMALY_REGION} 片区高异常**")
-_wk_all = D.anomaly_weekly()
+_wk_all = D.artifact("transport_weekly")
 if _wk_all.empty:
     st.info("周度异常表为空，无周趋势可画。")
 else:
@@ -526,7 +514,7 @@ else:
             )
         with _wk_c1:
             st.markdown("**埋点池化检验**")
-            _pts = D.embedded_points()
+            _pts = D.artifact("transport_anomaly_points")
             _pt_rows = []
             for _key in ("friday_late", "r07_anomaly", "rainy_late"):
                 _d = _pts.get(_key)
@@ -562,7 +550,7 @@ st.divider()
 # 五、双模式 TCO 曲线（标注盈亏平衡里程）
 # ---------------------------------------------------------------------------
 st.subheader("双模式 TCO：柴油自购 vs 纯电租赁")
-_tco = D.transport_tco()
+_tco = D.artifact("transport_tco")
 _curves = _tco["curves"]
 _be = _tco["breakeven_km"]
 _tco_series = {
@@ -664,8 +652,8 @@ with st.expander("数据来源与口径（每个数字的追溯入口）"):
 | POI 名称（地图弹窗） | `{C.POI_CSV.name}` | `python -m src.geo_poi` | 真实观测 |
 
 - 全部读数经 `src/dashboard/data.py` 取用并缓存；缓存键含**产物 mtime**，产物一被重写就自动重读
-  （另有侧边栏「刷新产物读数」按钮兜底）。POI 名称是地图标注用的地理参照、`data.py` 未设专用
-  loader，本页按同一套「路径 + mtime」缓存键就地读取。
+  （另有侧边栏「刷新产物读数」按钮兜底）。页面不自行读盘——绕开取数层就会绕过 mtime 缓存键，
+  产物更新后那一处不会自动失效。
 - 本页不显示 0 或占位值掩盖缺产物：产物不全时直接列出缺哪个文件、该跑哪条命令并停下。
 """
     )

@@ -31,7 +31,6 @@ import streamlit as st
 st.set_page_config(page_title="改善建议 · 区域仓配中心", page_icon="🛠️", layout="wide")
 
 from src import config as C  # noqa: E402
-from src import transport_decisions as TD  # noqa: E402
 from src import warehouse_kpi as WK  # noqa: E402
 from src.dashboard import charts as CH  # noqa: E402
 from src.dashboard import components as UI  # noqa: E402
@@ -48,19 +47,10 @@ D.require_artifacts((
     "transport_whatif", "transport_tco",
     "sim_whatif", "sim_exp2",
     "warehouse_kpi", "transport_kpi",
+    "transport_anomaly_points",
     "outbound", "olist_overall",
     "delivery_orders", "regions",
 ))
-
-# 异常埋点复现产物（anomaly_points.json）不在公共 ARTIFACTS 清单里，显式补一次存在性
-# 检查——缺产物要报错停下，绝不显示 0 冒充（见 data.py 模块 docstring 第 1 条）。
-if not C.TRANSPORT_ANOMALY_POINTS_JSON.exists():
-    st.error("缺少异常埋点复现产物，无法给出可信数字（不显示 0 或其他占位值）。请在项目根运行：")
-    st.markdown(
-        f"- `{C.TRANSPORT_ANOMALY_POINTS_JSON.relative_to(C.PROJECT_ROOT)}` "
-        "← `python -m src.transport_decisions`"
-    )
-    st.stop()
 
 
 # ---------------------------------------------------------------------------
@@ -105,7 +95,7 @@ def _abc_recompute(a_cut: float, b_cut: float):
     复用 `warehouse_kpi.abc_classify` 的**唯一口径**，不在页面里重写分类逻辑；
     缓存键 = `(a_cut, b_cut)`，两阈值一变缓存即失效——阈值不进键，滑块拖动就没反应。
     """
-    return WK.abc_classify(D.outbound_lines(), (float(a_cut), float(b_cut)))
+    return WK.abc_classify(D.artifact("outbound"), (float(a_cut), float(b_cut)))
 
 
 def _tco_curve_figure(mode_label: str, mileage, cost, *, slot: int,
@@ -167,12 +157,12 @@ UI.context_bar(
 # 一次性读入本页所有产物（缓存原语挂在 data.py 上，随产物 mtime 自动失效）
 wh = D.warehouse_kpi()               # 仓内 KPI / ABC / 库位重排 / 埋点复现
 trk = D.transport_kpi()              # 运输基线 vs 优化（代表日）
-pts = D.embedded_points()            # 异常埋点池化检验 + 逐周复现
-ol = D.olist_overall()               # Olist 真实履约（异常总体水平的标定基准）
-tco = D.transport_tco()              # TCO 曲线 / 盈亏平衡 / 敏感性 / 建议
+pts = D.artifact("transport_anomaly_points")   # 异常埋点池化检验 + 逐周复现
+ol = D.artifact("olist_overall")     # Olist 真实履约（异常总体水平的标定基准）
+tco = D.artifact("transport_tco")    # TCO 曲线 / 盈亏平衡 / 敏感性 / 建议
 whatif = D.whatif_vehicles()         # 车辆数 16 档预计算缓存
-exp2 = D.sim_exp2()                  # 人力权衡曲线与拐点
-staffing = D.sim_whatif_staffing()   # 人力档位瞬时切换缓存
+exp2 = D.artifact("sim_exp2")        # 人力权衡曲线与拐点
+staffing = D.artifact("sim_whatif")  # 人力档位瞬时切换缓存
 
 DATA_CATEGORY_VOCAB = "真实观测 / 学术基准 / 过程仿真 / 情景假设"
 st.caption(
@@ -199,27 +189,26 @@ _pts_path = _rel(C.TRANSPORT_ANOMALY_POINTS_JSON)
 _exp2_path = _rel(C.PROCESSED_DIR / "sim" / "exp2_staffing.json")
 _ol_path = _rel(C.PROCESSED_DIR / "olist_kpi" / "overall_kpi.json")
 
-_slow = wh["embedding_checks"]["pick_slowdown_14_16"]
-_p03 = wh["embedding_checks"]["p03_discrepancy"]
-_slot = wh["slotting"]
-_tr_acc = wh["kpis"]["inventory_accuracy"]["rate"]
-_b, _o = trk["baseline"], trk["optimized"]
-_bd, _od = _b["cost"]["diesel"]["per_order"], _o["cost"]["diesel"]["per_order"]
-_be, _oe = _b["cost"]["ev"]["per_order"], _o["cost"]["ev"]["per_order"]
+_slow = wh.pick_slowdown
+_p03 = wh.p03_discrepancy
+_slot = wh.slotting
+_tr_acc = wh.inventory_accuracy_rate
+_b, _o = trk.baseline, trk.optimized
+_bd, _od = _b.diesel_per_order, _o.diesel_per_order
+_be, _oe = _b.ev_per_order, _o.ev_per_order
 _fl, _r7 = pts["friday_late"], pts["r07_anomaly"]
 _wr = pts["weekly_replication"]
 _trade = exp2["tradeoff"]
 _knee = _trade["knee_at_pickers"]
 _m0, _m1 = _trade["marginals"][0], _trade["marginals"][1]
-_tw_b, _tw_o = _b["time_window"], _o["time_window"]
 
 _diag_rows = [
     {
         "问题诊断": "拣货效率在 14–16 点存在时段低谷",
         "数据类别": "过程仿真",
         "证据文件": f"{_wh_path} → embedding_checks.pick_slowdown_14_16",
-        "关键读数": f"14–16 点 {_slow['sec_per_line_14_16']:.1f} 秒/行 vs 其余 "
-                    f"{_slow['sec_per_line_other']:.1f} 秒/行（{_slow['ratio']:.2f}×）",
+        "关键读数": f"14–16 点 {_slow.sec_per_line_14_16:.1f} 秒/行 vs 其余 "
+                    f"{_slow.sec_per_line_other:.1f} 秒/行（{_slow.ratio:.2f}×）",
         "改善动作": "到货波次错峰 + 人力档位维持拐点（而非整体加人）",
         "预期收益": f"人力拐点 {_knee} 人：4→5 人每投入 1 元省 "
                     f"{_m0['sec_saved_per_yuan']:.4f} 秒，5→6 人降至 "
@@ -230,8 +219,8 @@ _diag_rows = [
         "问题诊断": f"{C.HIGH_DIFF_CATEGORY} 品类盘点差异率显著偏高",
         "数据类别": "过程仿真",
         "证据文件": f"{_wh_path} → embedding_checks.p03_discrepancy",
-        "关键读数": f"{C.HIGH_DIFF_CATEGORY} {_p03['p03_rate']:.2%} vs 其他品类 "
-                    f"{_p03['other_rate']:.2%}（{_p03['ratio']:.2f}×）",
+        "关键读数": f"{C.HIGH_DIFF_CATEGORY} {_p03.rate:.2%} vs 其他品类 "
+                    f"{_p03.other_rate:.2%}（{_p03.ratio:.2f}×）",
         "改善动作": f"{C.HIGH_DIFF_CATEGORY} 循环盘点加密、差异责任到人",
         "预期收益": f"守住库存准确率（金额加权口径）{_tr_acc:.4%}——"
                     f"{C.HIGH_DIFF_CATEGORY} 是主要缺口",
@@ -241,23 +230,23 @@ _diag_rows = [
         "问题诊断": "库位布局与出库频次不匹配，行走成本被浪费",
         "数据类别": "过程仿真",
         "证据文件": f"{_wh_path} → slotting",
-        "关键读数": f"行走成本 {_slot['walk_cost_before']:,.0f} → "
-                    f"{_slot['walk_cost_after']:,.0f} 行·米（−{_slot['reduction_pct']:.2f}%）",
+        "关键读数": f"行走成本 {_slot.walk_cost_before:,.0f} → "
+                    f"{_slot.walk_cost_after:,.0f} 行·米（−{_slot.reduction_pct:.2f}%）",
         "改善动作": "库位重排：出库频次降序 ↔ 库位距离升序配对（库位集合不变）",
-        "预期收益": f"每行拣货行走省 {_slot['walk_sec_per_line_saved']:.2f} 秒"
-                    f"（{_slot['walk_m_per_line_before']:.2f} → "
-                    f"{_slot['walk_m_per_line_after']:.2f} m）",
+        "预期收益": f"每行拣货行走省 {_slot.walk_sec_per_line_saved:.2f} 秒"
+                    f"（{_slot.walk_m_per_line_before:.2f} → "
+                    f"{_slot.walk_m_per_line_after:.2f} m）",
         "收益证据文件": f"{_wh_path} → slotting.walk_sec_per_line_*",
     },
     {
         "问题诊断": "人工就近派车下里程与成本偏高",
-        "数据类别": trk["data_category"],
+        "数据类别": trk.data_category,
         "证据文件": f"{_trk_path} → baseline / optimized",
-        "关键读数": f"里程 {_b['total_distance_km']:,.2f} → {_o['total_distance_km']:,.2f} km；"
+        "关键读数": f"里程 {_b.total_distance_km:,.2f} → {_o.total_distance_km:,.2f} km；"
                     f"柴油单均 {_bd:.2f} → {_od:.2f} 元",
         "改善动作": "VRPTW 路径优化（载重+容积+时间窗+单 DC 往返，时限求解）",
-        "预期收益": f"里程 −{(_b['total_distance_km'] - _o['total_distance_km']) / _b['total_distance_km'] * 100:.2f}%、"
-                    f"用车 {_b['n_vehicles']} → {_o['n_vehicles']} 台、"
+        "预期收益": f"里程 −{(_b.total_distance_km - _o.total_distance_km) / _b.total_distance_km * 100:.2f}%、"
+                    f"用车 {_b.n_vehicles} → {_o.n_vehicles} 台、"
                     f"纯电单均 −{(_be - _oe) / _be * 100:.2f}%",
         "收益证据文件": f"{_trk_path} → baseline_all_days（全 90 天口径）",
     },
@@ -294,11 +283,11 @@ _diag_rows = [
         "问题诊断": "时间窗达成率**未**随优化改善（如实记录，不粉饰）",
         "数据类别": "过程仿真",
         "证据文件": f"{_trk_path} → baseline.time_window / optimized.time_window",
-        "关键读数": f"基线 = 优化 = {_tw_b['rate']:.2%}（两方案都排在窗内，延误把同样那批点推出窗）",
+        "关键读数": f"基线 = 优化 = {_b.time_window_rate:.2%}（两方案都排在窗内，延误把同样那批点推出窗）",
         "改善动作": f"目标函数补准时项（已加 {C.TRANSPORT_DELAY_BUFFER_MIN:.0f} 分钟计划缓冲"
                     f" + 误点惩罚软上界）",
-        "预期收益": f"距理论上限 {_tw_o['ceiling']['ceiling_rate']:.0%} 还差 "
-                    f"{_tw_o['gap_to_ceiling_pp']:.2f} pp",
+        "预期收益": f"距理论上限 {_o.time_window_ceiling_rate:.0%} 还差 "
+                    f"{_o.gap_to_ceiling_pp:.2f} pp",
         "收益证据文件": f"{_trk_path} → optimized.time_window.ceiling",
     },
 ]
@@ -309,8 +298,8 @@ st.dataframe(diag, use_container_width=True, hide_index=True)
 _gains = pd.DataFrame({
     "改善动作": ["库位重排", "VRPTW 路径优化（里程）", "VRPTW 路径优化（柴油单均成本）"],
     "幅度": [
-        -_slot["reduction_pct"],
-        -(_b["total_distance_km"] - _o["total_distance_km"]) / _b["total_distance_km"] * 100,
+        -_slot.reduction_pct,
+        -(_b.total_distance_km - _o.total_distance_km) / _b.total_distance_km * 100,
         -(_bd - _od) / _bd * 100,
     ],
     "证据文件": [_wh_path, _trk_path, _trk_path],
@@ -332,12 +321,10 @@ st.divider()
 # 二、车辆数 what-if（5–20 滑块，读 16 档预计算缓存，瞬时切档）
 # ===========================================================================
 st.subheader("二、车辆数 what-if（读预计算缓存，瞬时切档）")
-_grid = list(whatif.get("grid", []))
+_grid = list(whatif.grid)
 _lo, _hi = int(_grid[0]), int(_grid[-1])
-_n_orders = whatif.get("n_orders")
-_rep_day = whatif.get("representative_day")
 st.caption(
-    f"代表日 {_rep_day}（{_n_orders} 单 / {whatif.get('n_nodes')} 个配送点）已按车辆数 "
+    f"代表日 {whatif.representative_day}（{whatif.n_orders} 单 / {whatif.n_nodes} 个配送点）已按车辆数 "
     f"**{_lo}–{_hi}** 共 {len(_grid)} 档**离线预计算**（ADR-0010）。滑块只读缓存、"
     "**不实时求解**——车辆数对里程/成本的影响是非线性的，缓存里没有的组合不做插值外推。"
 )
@@ -346,28 +333,30 @@ n_veh = st.slider("车辆数（预计算档位，拖动即刻切档）", min_val
                   value=_n_default, step=1,
                   help="档位 = 车队规模时与 10 号票发表解做过一致性自检，见下方说明")
 
-res = TD.whatif_lookup(whatif, n_veh)
-if not res.get("available"):
+res = whatif.gear(n_veh)
+if res is None:
     # 超出网格：如实显示「需重跑预计算脚本」，不画一个够不到的 0
-    st.warning(res.get("message", "该车辆数超出预计算网格，需重跑预计算脚本"))
-elif not res.get("feasible"):
+    st.warning(f"车辆数 {n_veh} 超出预计算网格 {_lo}–{_hi}，需重跑预计算脚本"
+               "（ADR-0010：不做隐式实时求解）")
+elif not res.feasible:
     # 不可行档位：显示原因，而不是画成 0（「跑不了这一天」本身就是结论）
-    st.error(f"车辆数 {n_veh} 档不可行（预计算如实判为无解，非缺数据）：{res.get('infeasible_reason')}")
+    st.error(f"车辆数 {n_veh} 档不可行（预计算如实判为无解，非缺数据）：{res.infeasible_reason}")
 else:
+    _opt = res.optimized
     _cost_mode = f.cost_mode
     _mode_label = kpis.MODE_LABELS[_cost_mode]
-    _po = res["cost"][_cost_mode]["per_order"]
+    _po = _opt.cost_per_order[_cost_mode]
     UI.kpi_cards([
-        kpis.Metric(key="wf_km", label="代表日优化后总里程", value=res["total_distance_km"],
+        kpis.Metric(key="wf_km", label="代表日优化后总里程", value=_opt.total_distance_km,
                     previous=None, unit="km", higher_is_better=False, decimals=1,
                     basis="该档 VRPTW 优化解的 Σ趟次里程（whatif_vehicles.json）"),
-        kpis.Metric(key="wf_veh", label="实际用车数", value=float(res["n_vehicles_used"]),
+        kpis.Metric(key="wf_veh", label="实际用车数", value=float(_opt.n_vehicles_used),
                     previous=None, unit="台", higher_is_better=False, decimals=0,
                     basis="优化解实际启用的车辆数（≤ 车辆数上限）"),
-        kpis.Metric(key="wf_tw", label="时间窗达成率", value=res["time_window_rate"],
+        kpis.Metric(key="wf_tw", label="时间窗达成率", value=_opt.time_window_rate,
                     previous=None, unit="%", higher_is_better=True,
                     basis="逐单判定：Σ按时单 / Σ已服务单（实际送达口径）"),
-        kpis.Metric(key="wf_load", label="满载率均值", value=res["load_rate_mean"],
+        kpis.Metric(key="wf_load", label="满载率均值", value=_opt.load_rate_mean,
                     previous=None, unit="%", higher_is_better=True, decimals=1,
                     basis="该档全部趟次的实际载重 / 额定载重的平均"),
         kpis.Metric(key="wf_cost", label=f"单均成本（{_mode_label}）", value=_po,
@@ -375,28 +364,26 @@ else:
                     basis=f"该档总成本 / 订单数；口径由侧边栏「成本口径」决定（当前：{_mode_label}）"),
     ])
     st.caption(
-        f"未服务单 {res['n_orders_unserved']} 单；车辆数上限 {n_veh} 台时实际用车 "
-        f"{res['n_vehicles_used']} 台。以上数字随滑块即时重算，读的都是缓存里的同一档记录。"
+        f"未服务单 {_opt.n_orders_unserved} 单；车辆数上限 {n_veh} 台时实际用车 "
+        f"{_opt.n_vehicles_used} 台。以上数字随滑块即时重算，读的都是缓存里的同一档记录。"
     )
 
 # 16 档总览：图 + 表（缺值列如实显示「—」，不可行档位给出原因）
 _gear_rows = []
-for _g in _grid:
-    _rec = whatif["gears"][str(_g)]
-    _ok = bool(_rec["feasible"])
+for _n in _grid:
+    _rec = whatif.gear(int(_n))
+    _gopt = _rec.optimized          # 不可行档位为 None——值显示「—」，不显示 0
     _gear_rows.append({
-        "车辆数": int(_g),
-        "可行": "是" if _ok else "否",
-        "优化用车": _dash(_rec["n_vehicles_used"], "{:.0f}"),
-        "总里程(km)": _dash(_rec["total_distance_km"], "{:,.1f}"),
-        "时间窗达成率": _dash(_rec["time_window_rate"], "{:.2%}"),
-        "满载率均值": _dash(_rec["load_rate_mean"], "{:.1%}"),
-        "柴油单均(元)": _dash((_rec["cost"] or {}).get("diesel", {}).get("per_order"),
-                          "{:.2f}") if _ok else "—",
-        "纯电单均(元)": _dash((_rec["cost"] or {}).get("ev", {}).get("per_order"),
-                          "{:.2f}") if _ok else "—",
-        "未服务单": _dash(_rec["n_orders_unserved"], "{:.0f}"),
-        "不可行原因": _rec["infeasible_reason"] or "",
+        "车辆数": int(_n),
+        "可行": "是" if _rec.feasible else "否",
+        "优化用车": _dash(_gopt.n_vehicles_used if _gopt else None, "{:.0f}"),
+        "总里程(km)": _dash(_gopt.total_distance_km if _gopt else None, "{:,.1f}"),
+        "时间窗达成率": _dash(_gopt.time_window_rate if _gopt else None, "{:.2%}"),
+        "满载率均值": _dash(_gopt.load_rate_mean if _gopt else None, "{:.1%}"),
+        "柴油单均(元)": _dash(_gopt.cost_per_order["diesel"] if _gopt else None, "{:.2f}"),
+        "纯电单均(元)": _dash(_gopt.cost_per_order["ev"] if _gopt else None, "{:.2f}"),
+        "未服务单": _dash(_gopt.n_orders_unserved if _gopt else None, "{:.0f}"),
+        "不可行原因": _rec.infeasible_reason or "",
     })
 gears_tbl = pd.DataFrame(_gear_rows)
 _feasible = gears_tbl[gears_tbl["可行"] == "是"]
@@ -443,12 +430,12 @@ with _r2[1]:
         height=340,
     )
 
-_chk = whatif.get("consistency_check", {})
-if _chk.get("distance_delta_pct") is not None:
+_chk = whatif.consistency_check
+if _chk is not None:
     st.caption(
-        f"**一致性自检**：档位 = 车队规模（{_chk['gear']} 台）时，预计算里程 "
-        f"{_chk['distance_km']:,.2f} km vs 10 号票发表 {_chk['published_distance_km']:,.2f} km，"
-        f"差 {_chk['distance_delta_pct']:+.3f}%。{_chk['note']}"
+        f"**一致性自检**：档位 = 车队规模（{_chk.gear} 台）时，预计算里程 "
+        f"{_chk.distance_km:,.2f} km vs 10 号票发表 {_chk.published_distance_km:,.2f} km，"
+        f"差 {_chk.distance_delta_pct:+.3f}%。{_chk.note}"
     )
 
 st.divider()
@@ -483,7 +470,7 @@ else:
 
 _count, _pareto, _summary = _abc_recompute(a_cut, b_eff)
 _by = _summary["by_class"]
-_default_by = wh["abc"]["by_class"]
+_default_by = wh.abc_by_class
 _classes_tbl = pd.DataFrame([
     {
         "类别": cls,
@@ -491,7 +478,7 @@ _classes_tbl = pd.DataFrame([
         "SKU 占比": _pct(_by[cls]["sku_share"], 1),
         "出库行数占比": _pct(_by[cls]["line_share"], 2),
         f"默认阈值下 SKU 数（A={C.ABC_THRESHOLDS[0]:.0%}/B={C.ABC_THRESHOLDS[1]:.0%}）":
-            _default_by[cls]["n_sku"],
+            _default_by[cls].n_sku,
     }
     for cls in ("A", "B", "C")
 ])

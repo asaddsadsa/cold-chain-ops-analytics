@@ -484,29 +484,6 @@ def whatif_gears() -> list[int]:
     return list(range(int(lo), int(hi) + 1))
 
 
-def whatif_lookup(cache: dict, n_vehicles: int) -> dict:
-    """看板侧按档位取缓存（ADR-0010：不做隐式实时求解）。
-
-    超出网格的组合返回 `available=False` 与「需重跑预计算脚本」提示，
-    **不插值、不外推**——车辆数对里程/成本的影响是非线性的（车少了会挤不进时间窗、
-    车多了要多摊固定成本），在网格之间线性插值会造出一个不存在的数。
-    """
-    grid = list(cache.get("grid", []))
-    key = str(int(n_vehicles))
-    if grid and int(n_vehicles) in grid and key in cache.get("gears", {}):
-        return {"available": True, "n_vehicles": int(n_vehicles), **cache["gears"][key]}
-    return {
-        "available": False,
-        "n_vehicles": int(n_vehicles),
-        "grid": [min(grid), max(grid)] if grid else [],
-        "message": (
-            f"车辆数 {int(n_vehicles)} 超出预计算网格 "
-            f"{min(grid) if grid else '?'}–{max(grid) if grid else '?'}，"
-            f"需重跑预计算脚本（ADR-0010：不做隐式实时求解）"
-        ),
-    }
-
-
 #: 每个档位记录的**优化后** KPI 字段集。不可行的档位也保留同一套键（值填 None），
 #: 看板读缓存时不因某档无解而缺键。
 _PLAN_FIELDS = (

@@ -319,26 +319,10 @@ class TestSensitivity:
         assert rents[0] < rents[1] < rents[2]
 
 
-class TestWhatIfLookup:
-    """what-if 缓存切档与超网格提示（ADR-0010）。"""
-
-    def cache(self):
-        return {
-            "grid": [5, 6, 7],
-            "gears": {str(n): {"n_vehicles_available": n, "feasible": True} for n in (5, 6, 7)},
-        }
-
-    def test_cached_gear_is_returned(self):
-        got = TD.whatif_lookup(self.cache(), 6)
-        assert got["available"] is True
-        assert got["n_vehicles"] == 6
-
-    def test_out_of_grid_asks_for_recompute_instead_of_extrapolating(self):
-        for n in (4, 8):
-            got = TD.whatif_lookup(self.cache(), n)
-            assert got["available"] is False
-            assert "重跑预计算" in got["message"]
-            assert got["grid"] == [5, 7]
+class TestWhatIfGrid:
+    """what-if 网格定义（ADR-0010）。档位取缓存的读侧行为由 `test_dashboard_artifacts` 覆盖
+    ——`whatif_lookup` 原先住在本模块，但它零内部调用、唯一生产调用方是看板，故已随读侧
+    收口搬进 `src/dashboard/data.py`（`WhatIfVehicles.gear`）。"""
 
     def test_grid_definition_is_16_gears_from_config(self):
         grid = TD.whatif_gears()
