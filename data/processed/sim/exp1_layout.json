@@ -5,65 +5,65 @@
     "repeats": 30,
     "metrics": {
       "avg_order_pick_sec": {
-        "mean": 185.244,
-        "ci95_low": 184.996,
-        "ci95_high": 185.493,
+        "mean": 184.954,
+        "ci95_low": 184.779,
+        "ci95_high": 185.129,
         "n": 30,
-        "std": 0.667
+        "std": 0.469
       },
       "total_walk_m": {
-        "mean": 34072.5,
-        "ci95_low": 34072.5,
-        "ci95_high": 34072.5,
+        "mean": 33943.75,
+        "ci95_low": 33943.75,
+        "ci95_high": 33943.75,
         "n": 30,
         "std": 0.0
       },
       "avg_walk_m_per_order": {
-        "mean": 113.575,
-        "ci95_low": 113.575,
-        "ci95_high": 113.575,
+        "mean": 113.146,
+        "ci95_low": 113.146,
+        "ci95_high": 113.146,
         "n": 30,
         "std": 0.0
       },
       "avg_fulfillment_sec": {
-        "mean": 344.019,
-        "ci95_low": 342.106,
-        "ci95_high": 345.932,
+        "mean": 331.539,
+        "ci95_low": 329.612,
+        "ci95_high": 333.466,
         "n": 30,
-        "std": 5.123
+        "std": 5.162
       },
       "picker_utilization": {
         "mean": 0.316,
-        "ci95_low": 0.316,
-        "ci95_high": 0.317,
+        "ci95_low": 0.315,
+        "ci95_high": 0.316,
         "n": 30,
         "std": 0.001
       },
       "fulfillment_cv": {
-        "mean": 0.574,
-        "ci95_low": 0.57,
-        "ci95_high": 0.578,
+        "mean": 0.552,
+        "ci95_low": 0.548,
+        "ci95_high": 0.556,
         "n": 30,
         "std": 0.01
       },
       "fulfillment_skew": {
-        "mean": 0.943,
-        "ci95_low": 0.932,
-        "ci95_high": 0.954,
+        "mean": 0.951,
+        "ci95_low": 0.94,
+        "ci95_high": 0.961,
         "n": 30,
-        "std": 0.03
+        "std": 0.028
       },
       "line_pick_sec_mean": {
-        "mean": 110.484,
-        "ci95_low": 110.335,
-        "ci95_high": 110.632,
+        "mean": 110.31,
+        "ci95_low": 110.206,
+        "ci95_high": 110.415,
         "n": 30,
-        "std": 0.398
+        "std": 0.28
       },
       "line_pick_sec_cv": {
-        "mean": 0.409,
-        "ci95_low": 0.408,
-        "ci95_high": 0.411,
+        "mean": 0.406,
+        "ci95_low": 0.405,
+        "ci95_high": 0.408,
         "n": 30,
         "std": 0.004
       }
@@ -140,7 +140,7 @@
     }
   },
   "improvement": {
-    "walk_m_reduction_pct": 47.0,
-    "pick_sec_reduction_pct": 38.9
+    "walk_m_reduction_pct": 46.8,
+    "pick_sec_reduction_pct": 38.8
   }
 }

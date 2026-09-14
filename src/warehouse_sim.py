@@ -37,16 +37,25 @@ logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # 仿真内部参数（情景假设，登记台账）
+#
+# 与数据层 A **共用**的那几项一律读 config（`WAREHOUSE_*` 那组），本模块不再自存一份。
+# 两层的关系是「互相印证」，而互证只有在两边真的用同一组参数时才成立：先前各写一份、
+# 靠注释声明「与数据层 A 一致」，只改一边就静默失效，而写着一致的那行注释还留在原处。
 # ---------------------------------------------------------------------------
-_DAY_START_HOUR = 8  # 营业起点 08:00（秒轴 0 点）
-_DAY_END_HOUR = 18  # 营业终点 18:00
-_LINES_PER_ORDER_P = (0.50, 0.35, 0.15)  # 每单 1/2/3 行概率（与数据层 A 一致）
-_ABC_CLASS_SHARE = {"A": 0.70, "B": 0.20, "C": 0.10}  # ABC 抽样份额（与阈值一致）
-_SLOWDOWN_RANGE = (1.75, 2.05)  # 14–16 点拣货整段放大（与数据层 A 埋点③一致）
-_PICK_HANDLE_SIGMA = 0.4  # 拣货操作耗时对数正态 sigma
+_DAY_START_HOUR, _DAY_END_HOUR = C.WAREHOUSE_OPEN_HOURS  # 营业时段（秒轴 0 点 = 起点）
 # 代表日规模与到达集中度：读 config（情景假设，口径见 config 注释）
 _N_ORDERS_PER_DAY = C.SIM_N_ORDERS_PER_DAY
 _PEAK_INTENSITY = C.SIM_PEAK_INTENSITY
+
+
+def _abc_class_share() -> dict[str, float]:
+    """ABC 三类各自的 SKU 份额，由 `config.ABC_THRESHOLDS` 的累计切点推出。
+
+    不另存一份 `{"A": 0.70, "B": 0.20, "C": 0.10}`——那三个数就是 70/90/100 的差分，
+    存两份等于多造一处会漂移的地方。
+    """
+    a_cut, b_cut = C.ABC_THRESHOLDS
+    return {"A": a_cut, "B": b_cut - a_cut, "C": 1.0 - b_cut}
 
 
 def derive_seed(base: int, *parts) -> int:
@@ -63,16 +72,51 @@ def derive_seed(base: int, *parts) -> int:
 # ---------------------------------------------------------------------------
 # 布局：SKU → 行走距离（米）
 # ---------------------------------------------------------------------------
-def build_layout(sku_df: pd.DataFrame, loc_df: pd.DataFrame, mode: str) -> dict[str, float]:
+def load_sku_location_assignment(path: Path | None = None) -> pd.DataFrame:
+    """读数据层 A 交付的 SKU→库位分配（`config.WAREHOUSE_SKU_LOCATION_CSV`）。
+
+    缺产物即报错并给出运行指引，不降级、不近似——近似出来的基线会让实验一的互证失效。
+    """
+    p = C.WAREHOUSE_SKU_LOCATION_CSV if path is None else Path(path)
+    if not p.exists():
+        raise FileNotFoundError(
+            f"缺少数据层 A 的库位分配产物：{p}\n请先运行：python -m src.gen_warehouse_data"
+        )
+    return pd.read_csv(p)
+
+
+def build_layout(
+    sku_df: pd.DataFrame,
+    loc_df: pd.DataFrame,
+    mode: str,
+    *,
+    assignment: pd.DataFrame | None = None,
+) -> dict[str, float]:
     """构建 SKU→行走距离映射。
 
-    mode='original'：A 类配最远库位、C 类配最近（反转，复刻数据层 A 埋点①）；
-    mode='abc_zoned'：A 类配最近库位、C 类配最远（ABC 分区目标态）。
+    mode='original'：**读数据层 A 交付的库位分配**，即原始布局本身。必须传 `assignment`——
+    本模块原先用 `abc_initial_label` 近似复刻它（同类内按 sku_id 排序，而不是按需求频率），
+    逐 SKU 与真实布局并不相同（实测 500 个里只有 28 个距离相同）。实验一要拿这一臂去比对
+    数据层 A 的 outbound（两条证据链互证），基线必须是同一份布局，不能是它的近似。
 
-    SKU 按 ABC 等级排序、库位按距离排序后配对；同类内按 sku_id 稳定排序保证可复现。
+    mode='abc_zoned'：ABC 分区目标态（A 类近库位、C 类远库位）。这是实验的**处理组**，
+    由本模块构造，不读交付——它本来就该是本模块自己的干预，而不是从数据层 A 搬来的。
     """
     if mode not in ("original", "abc_zoned"):
         raise ValueError(f"未知布局模式: {mode}")
+    if mode == "original":
+        if assignment is None:
+            raise ValueError(
+                "mode='original' 需要数据层 A 交付的库位分配（见 load_sku_location_assignment）；"
+                "按 ABC 标签近似复刻的布局与原始布局逐 SKU 并不相同，不能当互证基线"
+            )
+        dist = dict(zip(loc_df["loc_id"], loc_df["walk_dist_m"]))
+        missing = set(assignment["loc_id"]) - set(dist)
+        if missing:
+            raise ValueError(f"库位分配里有 {len(missing)} 个 loc_id 不在库位主数据中")
+        return {str(s): float(dist[l])
+                for s, l in zip(assignment["sku_id"], assignment["loc_id"])}
+
     sku = sku_df.copy()
     rank = {"A": 0, "B": 1, "C": 2}
     sku["_rank"] = sku["abc_initial_label"].map(rank)
@@ -81,16 +125,16 @@ def build_layout(sku_df: pd.DataFrame, loc_df: pd.DataFrame, mode: str) -> dict[
     n = len(sku)
     sampled_pos = np.linspace(0, len(dists) - 1, n).astype(int)
     pool_near_first = dists[sampled_pos]  # 升序（近→远）
-    assigned = pool_near_first if mode == "abc_zoned" else pool_near_first[::-1]
-    return dict(zip(sku["sku_id"].tolist(), assigned.tolist()))
+    return dict(zip(sku["sku_id"].tolist(), pool_near_first.tolist()))
 
 
 def sku_sampling_weights(sku_df: pd.DataFrame) -> tuple[list[str], np.ndarray]:
     """按 ABC 类别份额构造 SKU 抽样权重（A 类高频被抽中概率大），与布局无关。"""
+    share = _abc_class_share()
     sku_ids = sku_df["sku_id"].tolist()
     labels = sku_df["abc_initial_label"].tolist()
     counts = pd.Series(labels).value_counts().to_dict()
-    w = np.array([_ABC_CLASS_SHARE[lbl] / counts[lbl] for lbl in labels], dtype=float)
+    w = np.array([share[lbl] / counts[lbl] for lbl in labels], dtype=float)
     return sku_ids, w / w.sum()
 
 
@@ -127,7 +171,7 @@ def pregenerate_orders(
 ) -> list[tuple[float, list[str]]]:
     """预生成订单批次：[(到达秒, [SKU,...]), ...]，SKU 按 ABC 频率加权抽样。"""
     arrivals = sample_arrival_seconds(rng, n_orders, peak_intensity)
-    lines_each = rng.choice([1, 2, 3], size=n_orders, p=_LINES_PER_ORDER_P)
+    lines_each = rng.choice([1, 2, 3], size=n_orders, p=C.WAREHOUSE_LINES_PER_ORDER_P)
     orders = []
     for i in range(n_orders):
         k = int(lines_each[i])
@@ -150,7 +194,7 @@ def _order_process(
     rec: dict,
 ) -> None:
     """单订单作业流：等拣货员 → 逐行拣货 → 等复核台 → 复核打包 → 发货。"""
-    handle_mu = math.log(C.PICK_SECONDS_PER_LINE_MEAN) - _PICK_HANDLE_SIGMA**2 / 2
+    handle_mu = math.log(C.PICK_SECONDS_PER_LINE_MEAN) - C.WAREHOUSE_PICK_HANDLE_SIGMA**2 / 2
     yield env.timeout(arrival_sec - env.now)
     arrive = env.now
 
@@ -160,14 +204,14 @@ def _order_process(
         walk_total = 0.0
         for sku in line_skus:
             walk = layout[sku] / C.WALK_SPEED_M_PER_SEC
-            handle = rng.lognormal(handle_mu, _PICK_HANDLE_SIGMA)
+            handle = rng.lognormal(handle_mu, C.WAREHOUSE_PICK_HANDLE_SIGMA)
             seg = walk + handle
             # env.now 为绝对秒轴（08:00 = 28800s），整除即得时钟小时
             hour = int(env.now // 3600)
             h0, h1 = C.PICK_SLOW_HOURS
             is_slow = h0 <= hour < h1
             if is_slow:  # 14–16 点整段放大（数据层 A 埋点③）
-                seg *= rng.uniform(*_SLOWDOWN_RANGE)
+                seg *= rng.uniform(*C.WAREHOUSE_SLOWDOWN_RANGE)
             walk_total += walk
             rec["line_pick_secs"].append(seg)
             rec["line_slow"].append(is_slow)
@@ -388,9 +432,12 @@ def run_all_experiments(
 
     sku_df = pd.read_csv(warehouse_dir / "sku_master.csv")
     loc_df = pd.read_csv(warehouse_dir / "location_master.csv")
+    assignment = load_sku_location_assignment(
+        warehouse_dir / C.WAREHOUSE_SKU_LOCATION_CSV.name)
     sku_ids, sku_w = sku_sampling_weights(sku_df)
 
-    layout_orig = build_layout(sku_df, loc_df, "original")
+    # 原始布局读交付（同一份布局本身）；ABC 分区是本模块构造的处理组
+    layout_orig = build_layout(sku_df, loc_df, "original", assignment=assignment)
     layout_abc = build_layout(sku_df, loc_df, "abc_zoned")
 
     base_seed = C.SEED_SIM
@@ -412,9 +459,9 @@ def run_all_experiments(
         exp2_arms.append(arm)
     tradeoff = tradeoff_curve_and_knee(exp2_arms)
 
-    # 校准：用【原始布局臂】对比数据层 A——数据层 A 的 outbound 正是原始布局
-    # （A 类远库位）生成，同布局同尺度才可比；用 abc_zoned 臂会把「重排提速」
-    # 误算成「仿真偏差」。CV/偏度跨尺度形状对照同理用原始臂。
+    # 校准：用【原始布局臂】对比数据层 A——该臂现在读的正是本层交付的那份库位分配，
+    # 与生成 outbound 的布局逐 SKU 相同（不再是按 ABC 标签的近似），同布局同尺度才可比；
+    # 用 abc_zoned 臂会把「重排提速」误算成「仿真偏差」。CV/偏度跨尺度形状对照同理用原始臂。
     sim_runs_proxy = [{
         "line_pick_sec_mean": exp1_orig["metrics"]["line_pick_sec_mean"]["mean"],
         "line_pick_sec_cv": exp1_orig["metrics"]["line_pick_sec_cv"]["mean"],

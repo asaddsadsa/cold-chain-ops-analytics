@@ -39,19 +39,17 @@ _OTHER_DISCREPANCY_P = 0.04  # 其他品类盘点差异概率
 _LATE_ARRIVAL_P = 0.18  # 埋点④：入库晚到概率
 _LATE_MIN_RANGE = (35, 240)  # 晚到偏移（分钟）：超过 30 分钟容差
 _ONTIME_MIN_RANGE = (-10, 25)  # 非晚到偏移（分钟）：容差内
-_SLOWDOWN_RANGE = (1.75, 2.05)  # 埋点③：低谷时段整段拣货时长放大系数
+#: 与数据层 F 共用的仓内生成参数一律读 config（`WAREHOUSE_*` 那组），本模块不再自存一份——
+#: 两层各写一份时，「与数据层 F 互证」就只是注释里的一句话，没有任何东西强制它成立。
 _PEAK_HOURS = C.SIM_PEAK_HOURS  # 订单到达双高峰 (9-11, 14-16)，与数据层 F 互证
 _PEAK_INTENSITY, _BASE_INTENSITY = 1.8, 1.0  # NHPP 强度：高峰/平峰
 _ORDER_RANGE = C.DAILY_OUTBOUND_RANGE  # 日订单量 [200, 400]
-_LINES_PER_ORDER_P = (0.50, 0.35, 0.15)  # 每单 1/2/3 行的概率
 _QTY_RANGE = (1, 6)  # 单行数量 1–5 件
 _REPLENISH_FACTOR, _REPLENISH_SAFETY = 1.15, 6  # 补货系数与安全量
 _INITIAL_STOCK_DAYS = 12  # 期初库存 ≈ 12 天期望需求
 _STOCKTAKE_PER_DAY = 50  # 每日循环盘点 SKU 数
-_ORDER_WINDOW_HOURS = (8, 18)  # 下单时间窗 08:00–18:00
 _RELEASE_DELAY_MIN = (10, 40)  # 订单释放到开始拣货的延迟（分钟）
 _LINE_STAGGER_MIN = (2, 6)  # 同单内逐行错峰（分钟）
-_PICK_HANDLE_SIGMA = 0.4  # 拣货操作耗时对数正态 sigma（均值≈12s，读 config）
 
 logger = logging.getLogger(__name__)
 
@@ -217,7 +215,7 @@ def plan_inbound(
 # ---------------------------------------------------------------------------
 def _minute_intensity() -> np.ndarray:
     """订单到达 NHPP 强度（分钟粒度，08:00–18:00 共 600 分钟），9–11 / 14–16 双高峰。"""
-    minutes = np.arange(_ORDER_WINDOW_HOURS[0] * 60, _ORDER_WINDOW_HOURS[1] * 60)
+    minutes = np.arange(C.WAREHOUSE_OPEN_HOURS[0] * 60, C.WAREHOUSE_OPEN_HOURS[1] * 60)
     hours = minutes // 60
     intensity = np.full(len(minutes), _BASE_INTENSITY, dtype=float)
     for h0, h1 in _PEAK_HOURS:
@@ -250,11 +248,11 @@ def simulate_outbound_and_stocktake(
     sku_ids = sku_df["sku_id"].to_numpy()
     walk_sec = loc_df["walk_dist_m"].to_numpy()[loc_index_of_sku] / _WALK_SPEED  # 每 SKU 行走秒数
     loc_ids = loc_df["loc_id"].to_numpy()[loc_index_of_sku]
-    handle_mu = float(np.log(C.PICK_SECONDS_PER_LINE_MEAN) - _PICK_HANDLE_SIGMA**2 / 2)
+    handle_mu = float(np.log(C.PICK_SECONDS_PER_LINE_MEAN) - C.WAREHOUSE_PICK_HANDLE_SIGMA**2 / 2)
 
     pickers = [faker.name() for _ in range(20)]  # Faker 仅生成拣货员姓名（无关结论）
     minute_p = _minute_intensity()
-    minute_grid = np.arange(_ORDER_WINDOW_HOURS[0] * 60, _ORDER_WINDOW_HOURS[1] * 60)
+    minute_grid = np.arange(C.WAREHOUSE_OPEN_HOURS[0] * 60, C.WAREHOUSE_OPEN_HOURS[1] * 60)
 
     stock = initial_stock.copy()
     outbound_days: list[pd.DataFrame] = []
@@ -269,7 +267,7 @@ def simulate_outbound_and_stocktake(
         n_orders = int(rng.integers(_ORDER_RANGE[0], _ORDER_RANGE[1] + 1))
         stats["order_counts"].append(n_orders)
         order_min = np.sort(rng.choice(minute_grid, size=n_orders, p=minute_p))
-        lines_per_order = rng.choice([1, 2, 3], size=n_orders, p=_LINES_PER_ORDER_P)
+        lines_per_order = rng.choice([1, 2, 3], size=n_orders, p=C.WAREHOUSE_LINES_PER_ORDER_P)
         n_lines = int(lines_per_order.sum())
         order_idx = np.repeat(np.arange(n_orders), lines_per_order)
         line_starts = np.repeat(np.cumsum(lines_per_order) - lines_per_order, lines_per_order)
@@ -303,14 +301,14 @@ def simulate_outbound_and_stocktake(
             + rng.uniform(_RELEASE_DELAY_MIN[0] * 60, _RELEASE_DELAY_MIN[1] * 60, n_lines)
             + (line_no - 1) * rng.uniform(_LINE_STAGGER_MIN[0] * 60, _LINE_STAGGER_MIN[1] * 60, n_lines)
         )
-        handle = rng.lognormal(handle_mu, _PICK_HANDLE_SIGMA, n_lines) * (1 + 0.1 * (qty_sel - 1))
+        handle = rng.lognormal(handle_mu, C.WAREHOUSE_PICK_HANDLE_SIGMA, n_lines) * (1 + 0.1 * (qty_sel - 1))
         duration = walk_sec[sku_sel] + handle
         # 埋点③：拣货开始落在 [14,16) 的行整段放大
         pick_hour = (pick_start_sec // 3600).astype(int)
         h0, h1 = C.PICK_SLOW_HOURS
         slow_mask = (pick_hour >= h0) & (pick_hour < h1)
         duration = duration * np.where(
-            slow_mask, rng.uniform(_SLOWDOWN_RANGE[0], _SLOWDOWN_RANGE[1], n_lines), 1.0
+            slow_mask, rng.uniform(*C.WAREHOUSE_SLOWDOWN_RANGE, n_lines), 1.0
         )
         pick_end_sec = pick_start_sec + duration
         check_sec = pick_end_sec + rng.triangular(*C.PACK_TRIANGULAR, n_lines)
@@ -572,17 +570,28 @@ def generate_warehouse(
         rng, faker, sku_df, loc_index_of_sku, loc_df, start, arrivals, initial_stock
     )
 
-    # 落盘五张表（列序固定，保证字节级可复现）
+    # 落盘六张表（列序固定，保证字节级可复现）
     sku_out = sku_df.drop(columns=["demand_weight"])  # 需求频率为内部参数，不随表交付
+    # 库位分配要**交付**：原始布局的定义参数是 SKU 需求频率（上面刚被丢掉那个），
+    # 数据层 F 的实验一要拿「原始布局臂」与本层的 outbound 对比（两条证据链互证），
+    # 交付实际分配后它读到的就是同一份布局本身，而不是按 ABC 标签的近似复刻。
+    assignment = pd.DataFrame(
+        {
+            "sku_id": sku_df["sku_id"].to_numpy(),
+            "loc_id": loc_ids[loc_index_of_sku],
+        }
+    )
     paths = {
         "sku_master": out_dir / "sku_master.csv",
         "location_master": out_dir / "location_master.csv",
+        "sku_location_assignment": C.WAREHOUSE_SKU_LOCATION_CSV.name,
         "inbound_receipts": out_dir / "inbound_receipts.csv",
         "outbound_orders": out_dir / "outbound_orders.csv",
         "inventory_stocktake": out_dir / "inventory_stocktake.csv",
     }
     sku_out.to_csv(paths["sku_master"], index=False)
     loc_df.to_csv(paths["location_master"], index=False)
+    assignment.to_csv(out_dir / C.WAREHOUSE_SKU_LOCATION_CSV.name, index=False)
     inbound_df.to_csv(paths["inbound_receipts"], index=False)
     outbound_df.to_csv(paths["outbound_orders"], index=False)
     stocktake_df.to_csv(paths["inventory_stocktake"], index=False)

@@ -71,6 +71,22 @@ PICK_SLOW_HOURS: tuple[int, int] = (14, 16)  # 拣货效率低谷时段 [14:00,1
 REGION_CODES: tuple[str, ...] = tuple(f"R{i:02d}" for i in range(1, 9))  # R01–R08
 HIGH_ANOMALY_REGION: str = "R07"  # 异常率埋点片区（数据层 D）
 
+# ---------------------------------------------------------------------------
+# 数据层 A 与数据层 F **共用**的仓内生成参数（情景假设，登记台账）
+#
+# 为什么集中在这里：这两层的关系是「互相印证」，而互证只有在两边真的用同一组参数时才成立。
+# 先前两层各写一份私有副本（都注明「与数据层 A / 数据层 F 一致」），但没有任何东西强制它们
+# 一致——只改一边，「互证」就退化成一句一致性声明，而写着一致的那行注释还留在原处。
+# ---------------------------------------------------------------------------
+#: 每单 1/2/3 行的概率（数据层 A 生成出库行、数据层 F 生成到达订单流）。
+WAREHOUSE_LINES_PER_ORDER_P: tuple[float, float, float] = (0.50, 0.35, 0.15)
+#: 14–16 点低谷整段拣货时长放大系数（数据层 A 的埋点③，数据层 F 的对照实验同源）。
+WAREHOUSE_SLOWDOWN_RANGE: tuple[float, float] = (1.75, 2.05)
+#: 拣货操作耗时对数正态 sigma（均值见 `PICK_SECONDS_PER_LINE_MEAN`）。
+WAREHOUSE_PICK_HANDLE_SIGMA: float = 0.4
+#: 仓内营业时段 [起, 止)（小时）：数据层 A 的下单窗、数据层 F 的到达窗口与秒轴共用。
+WAREHOUSE_OPEN_HOURS: tuple[int, int] = (8, 18)
+
 # DC 设定：成都青白江物流聚集区（教学模拟，非真实企业设施）
 DC_FALLBACK_LNG: float = 104.2510  # 青白江城区坐标（高德地理编码失败时降级用）
 DC_FALLBACK_LAT: float = 30.8780
@@ -229,6 +245,12 @@ WAREHOUSE_TABLES: dict[str, Path] = {
     "outbound": WAREHOUSE_DIR / "outbound_orders.csv",
     "stocktake": WAREHOUSE_DIR / "inventory_stocktake.csv",
 }
+
+#: 库位分配（SKU → 库位）。数据层 A 产出、数据层 F 读取。
+#: **为什么要交付它**：数据层 F 的「原始布局臂」要和数据层 A 的 outbound 对比（两条证据链
+#: 互证），而原始布局的定义参数是 SKU 需求频率——它当时被当作内部参数丢掉了，仿真器只能拿
+#: `abc_initial_label` 近似复刻。交付实际分配后，仿真器读到的就是同一份布局本身。
+WAREHOUSE_SKU_LOCATION_CSV = WAREHOUSE_DIR / "sku_location_assignment.csv"
 
 RECEIPT_TOLERANCE_MIN: float = 30.0  # 收货及时率容差（分钟），需求 3.x 硬口径
 

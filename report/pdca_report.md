@@ -135,7 +135,7 @@
 
 > 口径：以 `WALK_SPEED_M_PER_SEC = 1.2` 折算。**库位集合不变**（单测断言前后距离多重集一致），
 > 杜绝「换一批好库位刷指标」。该目标函数的最优性已用 `scipy.linear_sum_assignment` 独立复核。
-> **交叉印证**：SimPy 实验一（独立模型）给出单均行走 −47.0%、单均拣货 −38.9%，
+> **交叉印证**：SimPy 实验一（独立模型）给出单均行走 −46.8%、单均拣货 −38.8%，
 > 方向一致、量级不同（两个模型不同），属互证而非替代。
 
 ### C-2 配送路径优化（对应 D-2 / P-4）
@@ -249,7 +249,7 @@
 | Olist：96,282 单、准时率 91.87%、延迟率 8.13%、履约 12.57 天 | `data/processed/olist_kpi/overall_kpi.json` | `python -m src.olist_kpi` |
 | Solomon gap：+0.21% / −5.00% / +6.67% | `data/processed/solomon/solomon_validation.json` | `python -m src.solomon_validate` |
 | 人力拐点 5 人、4/5/6 人履约时长与边际收益 | `data/processed/sim/exp2_staffing.json` | `python -m src.warehouse_sim` |
-| 实验一单均行走 −47.0%、单均拣货 −38.9% | `data/processed/sim/exp1_layout.json` | 同上 |
+| 实验一单均行走 −46.8%、单均拣货 −38.8% | `data/processed/sim/exp1_layout.json` | 同上 |
 | 温控达标率、总体异常率 8.04%、车辆低满载 | `data/processed/qc/delivery_qc.json` | `python -m src.gen_delivery_data` |
 
 ## 附录 B：报告复现

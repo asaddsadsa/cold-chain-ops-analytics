@@ -37,17 +37,63 @@ def small_master() -> tuple[pd.DataFrame, pd.DataFrame]:
     return sku, loc
 
 
+@pytest.fixture(scope="module")
+def small_assignment(small_master) -> pd.DataFrame:
+    """合成一份「SKU → 库位」分配，按数据层 A 的**类级**规则排：A 类在最远端、C 类在最近端。
+
+    真实的那份由数据层 A 落盘（`sku_location_assignment.csv`），仿真器读它来复刻原始布局——
+    这里用合成小表代替，测的是「original 布局走交付的分配」这条路径本身。
+    """
+    sku, loc = small_master
+    by_dist = loc.sort_values("walk_dist_m", ascending=False)["loc_id"].tolist()
+    # A 从最远端取、C 从最近端取、B 取中间一段（互不重叠）
+    pools = {"A": by_dist, "B": by_dist[6:], "C": by_dist[::-1]}
+    cursor = {"A": 0, "B": 0, "C": 0}
+    rows = []
+    for sid, label in zip(sku["sku_id"], sku["abc_initial_label"]):
+        rows.append({"sku_id": sid, "loc_id": pools[label][cursor[label]]})
+        cursor[label] += 1
+    return pd.DataFrame(rows)
+
+
 class TestLayout:
-    def test_original_a_class_far(self, small_master):
+    def test_original_reads_the_delivered_assignment(self, small_master, small_assignment):
+        """original 布局必须**照交付的分配来**，而不是另算一套。
+
+        它原先是按 ABC 标签近似复刻的（同类内按 sku_id 排序，而非按需求频率），逐 SKU 与
+        真实布局并不相同；而实验一要拿这一臂去比对数据层 A 的 outbound（两条证据链互证），
+        基线必须是同一份布局。
+        """
         sku, loc = small_master
-        lay = W.build_layout(sku, loc, "original")
+        lay = W.build_layout(sku, loc, "original", assignment=small_assignment)
+        dist = dict(zip(loc["loc_id"], loc["walk_dist_m"]))
+        expected = dict(zip(small_assignment["sku_id"],
+                            small_assignment["loc_id"].map(dist)))
+        assert lay == pytest.approx(expected)
         a_dists = [lay[s] for s, l in zip(sku["sku_id"], sku["abc_initial_label"]) if l == "A"]
         c_dists = [lay[s] for s, l in zip(sku["sku_id"], sku["abc_initial_label"]) if l == "C"]
         assert np.mean(a_dists) > np.mean(c_dists)  # 原始布局：A 类更远
 
-    def test_abc_zoned_a_class_near(self, small_master):
+    def test_original_without_assignment_raises(self, small_master):
+        """缺交付时必须报错——静默退回近似复刻，等于把「互证」的基线悄悄换掉。"""
+        sku, loc = small_master
+        with pytest.raises(ValueError, match="交付的库位分配"):
+            W.build_layout(sku, loc, "original")
+
+    def test_original_rejects_loc_ids_not_in_the_master(self, small_master, small_assignment):
+        sku, loc = small_master
+        bad = small_assignment.copy()
+        bad.loc[0, "loc_id"] = "L9999"
+        with pytest.raises(ValueError, match="不在库位主数据"):
+            W.build_layout(sku, loc, "original", assignment=bad)
+
+    def test_abc_zoned_is_the_treatment_not_a_delivery(self, small_master, small_assignment):
+        """ABC 分区是实验的**处理组**，由本模块构造，与交付的分配无关。"""
         sku, loc = small_master
         lay = W.build_layout(sku, loc, "abc_zoned")
+        lay_with_assignment = W.build_layout(sku, loc, "abc_zoned",
+                                             assignment=small_assignment)
+        assert lay == lay_with_assignment
         a_dists = [lay[s] for s, l in zip(sku["sku_id"], sku["abc_initial_label"]) if l == "A"]
         c_dists = [lay[s] for s, l in zip(sku["sku_id"], sku["abc_initial_label"]) if l == "C"]
         assert np.mean(a_dists) < np.mean(c_dists)  # ABC 分区：A 类更近
@@ -133,18 +179,40 @@ class TestRunOneSim:
         assert r1["line_pick_sec_mean"] > 0
         assert r1["total_walk_m"] > 0
 
-    def test_abc_layout_reduces_walk(self, small_master):
+    def test_abc_layout_reduces_walk(self, small_master, small_assignment):
         # 同一订单流下，ABC 布局总行走距离 < 原始布局
         sku, loc = small_master
         ids, w = W.sku_sampling_weights(sku)
         rng = np.random.default_rng(9)
         orders = W.pregenerate_orders(rng, 80, ids, w)
-        lay_o = W.build_layout(sku, loc, "original")
+        lay_o = W.build_layout(sku, loc, "original", assignment=small_assignment)
         lay_a = W.build_layout(sku, loc, "abc_zoned")
         ro = W.run_one_sim(lay_o, 5, seed=7, orders=orders)
         ra = W.run_one_sim(lay_a, 5, seed=7, orders=orders)
         assert ra["total_walk_m"] < ro["total_walk_m"]
         assert ra["avg_order_pick_sec"] < ro["avg_order_pick_sec"]
+
+
+class TestDeliveredAssignmentReconcilesWithOutbound:
+    """交付的分配表必须与数据层 A 真正用过的布局一致。
+
+    这是「互证」的地基：实验一的原始布局臂读的是这份表，而数据层 A 的 outbound 是按
+    它生成出库行的。两者若不一致，所谓互证就是拿两份不同的布局在比。
+    """
+
+    def test_assignment_matches_the_layout_behind_outbound(self):
+        from src import config as C
+        if not C.WAREHOUSE_SKU_LOCATION_CSV.exists():
+            pytest.skip("数据层 A 尚未生成（缺 sku_location_assignment.csv）")
+        asg = W.load_sku_location_assignment().set_index("sku_id")["loc_id"]
+        out = pd.read_csv(C.WAREHOUSE_TABLES["outbound"], encoding="utf-8-sig")
+        used = out.groupby("sku_id")["loc_id"].agg(lambda s: s.mode().iloc[0])
+        assert len(asg) == C.SKU_COUNT
+        assert (asg.reindex(used.index) == used).all()
+
+    def test_missing_assignment_names_the_command(self, tmp_path):
+        with pytest.raises(FileNotFoundError, match="python -m src.gen_warehouse_data"):
+            W.load_sku_location_assignment(tmp_path / "absent.csv")
 
 
 class TestAggregate:
