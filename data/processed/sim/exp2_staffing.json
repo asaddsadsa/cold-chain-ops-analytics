@@ -6,11 +6,11 @@
       "repeats": 30,
       "metrics": {
         "avg_order_pick_sec": {
-          "mean": 110.31,
-          "ci95_low": 108.817,
-          "ci95_high": 111.802,
+          "mean": 98.988,
+          "ci95_low": 97.641,
+          "ci95_high": 100.335,
           "n": 30,
-          "std": 3.997
+          "std": 3.608
         },
         "total_walk_m": {
           "mean": 18018.625,
@@ -27,46 +27,46 @@
           "std": 1.897
         },
         "avg_fulfillment_sec": {
-          "mean": 195.603,
-          "ci95_low": 192.619,
-          "ci95_high": 198.586,
+          "mean": 170.875,
+          "ci95_low": 169.274,
+          "ci95_high": 172.476,
           "n": 30,
-          "std": 7.991
+          "std": 4.288
         },
         "picker_utilization": {
-          "mean": 0.238,
-          "ci95_low": 0.234,
-          "ci95_high": 0.242,
+          "mean": 0.208,
+          "ci95_low": 0.205,
+          "ci95_high": 0.211,
           "n": 30,
-          "std": 0.011
+          "std": 0.008
         },
         "fulfillment_cv": {
-          "mean": 0.443,
-          "ci95_low": 0.43,
-          "ci95_high": 0.457,
+          "mean": 0.403,
+          "ci95_low": 0.393,
+          "ci95_high": 0.412,
           "n": 30,
-          "std": 0.036
+          "std": 0.024
         },
         "fulfillment_skew": {
-          "mean": 1.223,
-          "ci95_low": 1.132,
-          "ci95_high": 1.313,
+          "mean": 1.388,
+          "ci95_low": 1.305,
+          "ci95_high": 1.471,
           "n": 30,
-          "std": 0.242
+          "std": 0.223
         },
         "line_pick_sec_mean": {
-          "mean": 67.052,
-          "ci95_low": 66.412,
-          "ci95_high": 67.692,
+          "mean": 60.181,
+          "ci95_low": 59.455,
+          "ci95_high": 60.908,
           "n": 30,
-          "std": 1.714
+          "std": 1.945
         },
         "line_pick_sec_cv": {
-          "mean": 0.519,
-          "ci95_low": 0.513,
-          "ci95_high": 0.525,
+          "mean": 0.523,
+          "ci95_low": 0.517,
+          "ci95_high": 0.529,
           "n": 30,
-          "std": 0.015
+          "std": 0.016
         }
       }
     },
@@ -76,11 +76,11 @@
       "repeats": 30,
       "metrics": {
         "avg_order_pick_sec": {
-          "mean": 111.023,
-          "ci95_low": 109.377,
-          "ci95_high": 112.669,
+          "mean": 100.029,
+          "ci95_low": 98.47,
+          "ci95_high": 101.588,
           "n": 30,
-          "std": 4.409
+          "std": 4.175
         },
         "total_walk_m": {
           "mean": 18113.292,
@@ -97,46 +97,46 @@
           "std": 1.826
         },
         "avg_fulfillment_sec": {
-          "mean": 186.917,
-          "ci95_low": 184.45,
-          "ci95_high": 189.384,
+          "mean": 170.765,
+          "ci95_low": 168.832,
+          "ci95_high": 172.698,
           "n": 30,
-          "std": 6.606
+          "std": 5.176
         },
         "picker_utilization": {
-          "mean": 0.189,
-          "ci95_low": 0.186,
-          "ci95_high": 0.192,
+          "mean": 0.167,
+          "ci95_low": 0.165,
+          "ci95_high": 0.17,
           "n": 30,
-          "std": 0.008
+          "std": 0.007
         },
         "fulfillment_cv": {
-          "mean": 0.414,
-          "ci95_low": 0.405,
-          "ci95_high": 0.423,
+          "mean": 0.394,
+          "ci95_low": 0.385,
+          "ci95_high": 0.403,
           "n": 30,
-          "std": 0.025
+          "std": 0.024
         },
         "fulfillment_skew": {
-          "mean": 1.18,
-          "ci95_low": 1.117,
-          "ci95_high": 1.244,
+          "mean": 1.313,
+          "ci95_low": 1.241,
+          "ci95_high": 1.385,
           "n": 30,
-          "std": 0.17
+          "std": 0.192
         },
         "line_pick_sec_mean": {
-          "mean": 67.065,
-          "ci95_low": 66.357,
-          "ci95_high": 67.773,
+          "mean": 60.426,
+          "ci95_low": 59.703,
+          "ci95_high": 61.148,
           "n": 30,
-          "std": 1.896
+          "std": 1.935
         },
         "line_pick_sec_cv": {
-          "mean": 0.52,
-          "ci95_low": 0.513,
-          "ci95_high": 0.526,
+          "mean": 0.518,
+          "ci95_low": 0.51,
+          "ci95_high": 0.525,
           "n": 30,
-          "std": 0.018
+          "std": 0.019
         }
       }
     },
@@ -146,11 +146,11 @@
       "repeats": 30,
       "metrics": {
         "avg_order_pick_sec": {
-          "mean": 110.301,
-          "ci95_low": 109.072,
-          "ci95_high": 111.53,
+          "mean": 98.698,
+          "ci95_low": 97.597,
+          "ci95_high": 99.8,
           "n": 30,
-          "std": 3.29
+          "std": 2.949
         },
         "total_walk_m": {
           "mean": 18075.875,
@@ -167,46 +167,46 @@
           "std": 1.386
         },
         "avg_fulfillment_sec": {
-          "mean": 184.545,
-          "ci95_low": 183.0,
-          "ci95_high": 186.089,
+          "mean": 169.277,
+          "ci95_low": 168.03,
+          "ci95_high": 170.525,
           "n": 30,
-          "std": 4.136
+          "std": 3.34
         },
         "picker_utilization": {
-          "mean": 0.157,
-          "ci95_low": 0.155,
-          "ci95_high": 0.159,
+          "mean": 0.138,
+          "ci95_low": 0.136,
+          "ci95_high": 0.139,
           "n": 30,
-          "std": 0.006
+          "std": 0.004
         },
         "fulfillment_cv": {
-          "mean": 0.405,
-          "ci95_low": 0.396,
-          "ci95_high": 0.415,
+          "mean": 0.387,
+          "ci95_low": 0.376,
+          "ci95_high": 0.397,
           "n": 30,
-          "std": 0.025
+          "std": 0.028
         },
         "fulfillment_skew": {
-          "mean": 1.159,
-          "ci95_low": 1.08,
-          "ci95_high": 1.238,
+          "mean": 1.288,
+          "ci95_low": 1.175,
+          "ci95_high": 1.401,
           "n": 30,
-          "std": 0.212
+          "std": 0.303
         },
         "line_pick_sec_mean": {
-          "mean": 66.839,
-          "ci95_low": 66.271,
-          "ci95_high": 67.408,
+          "mean": 59.807,
+          "ci95_low": 59.325,
+          "ci95_high": 60.289,
           "n": 30,
-          "std": 1.522
+          "std": 1.29
         },
         "line_pick_sec_cv": {
-          "mean": 0.518,
-          "ci95_low": 0.512,
-          "ci95_high": 0.523,
+          "mean": 0.513,
+          "ci95_low": 0.506,
+          "ci95_high": 0.52,
           "n": 30,
-          "std": 0.014
+          "std": 0.018
         }
       }
     }
@@ -215,17 +215,17 @@
     "curve": [
       {
         "n_pickers": 4,
-        "avg_fulfillment_sec": 195.603,
+        "avg_fulfillment_sec": 170.875,
         "daily_labor_cost": 920.0
       },
       {
         "n_pickers": 5,
-        "avg_fulfillment_sec": 186.917,
+        "avg_fulfillment_sec": 170.765,
         "daily_labor_cost": 1150.0
       },
       {
         "n_pickers": 6,
-        "avg_fulfillment_sec": 184.545,
+        "avg_fulfillment_sec": 169.277,
         "daily_labor_cost": 1380.0
       }
     ],
@@ -233,18 +233,19 @@
       {
         "from_pickers": 4,
         "to_pickers": 5,
-        "delta_fulfillment_sec": -8.69,
+        "delta_fulfillment_sec": -0.11,
         "delta_cost": 230.0,
-        "sec_saved_per_yuan": 0.0378
+        "sec_saved_per_yuan": 0.0005
       },
       {
         "from_pickers": 5,
         "to_pickers": 6,
-        "delta_fulfillment_sec": -2.37,
+        "delta_fulfillment_sec": -1.49,
         "delta_cost": 230.0,
-        "sec_saved_per_yuan": 0.0103
+        "sec_saved_per_yuan": 0.0065
       }
     ],
-    "knee_at_pickers": 5
+    "knee_at_pickers": null,
+    "knee_note": "各档边际收益不是逐档下降（[0.0005, 0.0065]），最大边际落在第 2 段——「再加人还在变好」说明测试区间没覆盖到拐点，而不是存在拐点"
   }
 }

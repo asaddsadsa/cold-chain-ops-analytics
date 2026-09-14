@@ -1,52 +1,52 @@
 {
   "4": {
     "avg_fulfillment_sec": {
-      "mean": 195.603,
-      "ci95_low": 192.619,
-      "ci95_high": 198.586,
+      "mean": 170.875,
+      "ci95_low": 169.274,
+      "ci95_high": 172.476,
       "n": 30,
-      "std": 7.991
+      "std": 4.288
     },
     "picker_utilization": {
-      "mean": 0.238,
-      "ci95_low": 0.234,
-      "ci95_high": 0.242,
+      "mean": 0.208,
+      "ci95_low": 0.205,
+      "ci95_high": 0.211,
       "n": 30,
-      "std": 0.011
+      "std": 0.008
     },
     "daily_labor_cost": 920.0
   },
   "5": {
     "avg_fulfillment_sec": {
-      "mean": 186.917,
-      "ci95_low": 184.45,
-      "ci95_high": 189.384,
+      "mean": 170.765,
+      "ci95_low": 168.832,
+      "ci95_high": 172.698,
       "n": 30,
-      "std": 6.606
+      "std": 5.176
     },
     "picker_utilization": {
-      "mean": 0.189,
-      "ci95_low": 0.186,
-      "ci95_high": 0.192,
+      "mean": 0.167,
+      "ci95_low": 0.165,
+      "ci95_high": 0.17,
       "n": 30,
-      "std": 0.008
+      "std": 0.007
     },
     "daily_labor_cost": 1150.0
   },
   "6": {
     "avg_fulfillment_sec": {
-      "mean": 184.545,
-      "ci95_low": 183.0,
-      "ci95_high": 186.089,
+      "mean": 169.277,
+      "ci95_low": 168.03,
+      "ci95_high": 170.525,
       "n": 30,
-      "std": 4.136
+      "std": 3.34
     },
     "picker_utilization": {
-      "mean": 0.157,
-      "ci95_low": 0.155,
-      "ci95_high": 0.159,
+      "mean": 0.138,
+      "ci95_low": 0.136,
+      "ci95_high": 0.139,
       "n": 30,
-      "std": 0.006
+      "std": 0.004
     },
     "daily_labor_cost": 1380.0
   }

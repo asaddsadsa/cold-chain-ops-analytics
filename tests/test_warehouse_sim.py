@@ -215,6 +215,69 @@ class TestDeliveredAssignmentReconcilesWithOutbound:
             W.load_sku_location_assignment(tmp_path / "absent.csv")
 
 
+class TestArrivalIntensityIsSharedWithLayerA:
+    """到达过程是两层**共用**的一个参数，不是各写一份。
+
+    ADR-0001 写明「仿真的校准锚点是自家的仿真仓表——**到达过程**与 14–16 点低谷埋点相互
+    印证」。互证只有在两边真的用同一个到达过程时才成立；先前两层各写一份且差一个数量级
+    （层 A 1.8 / 层 F 10.0），而写着「与数据层 F 互证」的注释还留在原处。
+    """
+
+    def test_both_layers_compute_the_same_minute_distribution(self):
+        from src import gen_warehouse_data as GD
+        a = GD._minute_intensity()
+        b = W.minute_intensity()
+        assert len(a) == len(b)
+        assert np.allclose(a, b, atol=0, rtol=0), "数据层 A 与 F 的到达分布必须逐元素相同"
+
+    def test_peak_share_follows_the_configured_ratio(self):
+        """高峰 4 小时承载的份额要由 `WAREHOUSE_PEAK_INTENSITY` 决定，不是各自拍脑袋。"""
+        p = W.minute_intensity()
+        minutes = np.arange(C.WAREHOUSE_OPEN_HOURS[0] * 60, C.WAREHOUSE_OPEN_HOURS[1] * 60)
+        hours = minutes // 60  # 分钟轴上的时钟小时（8–17）
+        peak = sum(p[(hours >= h0) & (hours < h1)].sum() for h0, h1 in C.SIM_PEAK_HOURS)
+        # 6 平峰小时 × 1 + 4 高峰小时 × r，高峰份额 = 4r / (6 + 4r)
+        r = C.WAREHOUSE_PEAK_INTENSITY
+        assert peak == pytest.approx(4 * r / (6 + 4 * r))
+
+    def test_no_stale_intensity_constant(self):
+        """旧的 `SIM_PEAK_INTENSITY` 必须已经删掉——留着它就会有人再改那一份。"""
+        assert not hasattr(C, "SIM_PEAK_INTENSITY")
+
+
+class TestKneeIsOnlyReportedWhenItExists:
+    """拐点只在**边际收益真的递减**时报出来。
+
+    原实现取 `sec_saved_per_yuan` 的最大值当拐点，与 docstring 写的「边际收益骤降处」是
+    两回事：边际一非单调就会翻到最后一档。到达强度统一后各档边际变成 [0.0005, 0.0065]，
+    原实现便报出「拐点 = 6 人」——而 6 正是测试区间的上界，那不是拐点。
+    """
+
+    @staticmethod
+    def _arm(n_pickers: int, mean_sec: float) -> dict:
+        return {"n_pickers": n_pickers,
+                "metrics": {"avg_fulfillment_sec": {"mean": mean_sec}}}
+
+    def test_reports_a_knee_when_returns_diminish(self):
+        arms = [self._arm(4, 195.6), self._arm(5, 186.9), self._arm(6, 184.5)]
+        got = W.tradeoff_curve_and_knee(arms)
+        assert got["knee_at_pickers"] == 5
+        assert got["knee_note"]
+
+    def test_no_knee_when_the_biggest_gain_is_at_the_last_gear(self):
+        """最大边际落在最后一档 = 「再加人还在变好」= 区间没覆盖到拐点，不是拐点。"""
+        arms = [self._arm(4, 170.9), self._arm(5, 170.8), self._arm(6, 169.3)]
+        got = W.tradeoff_curve_and_knee(arms)
+        assert got["knee_at_pickers"] is None
+        assert "没覆盖到拐点" in got["knee_note"]
+
+    def test_every_case_states_its_reason(self):
+        """无论有没有拐点，都给出可读的理由——None 不带原因等于什么都没说。"""
+        for arms in ([self._arm(4, 195.6), self._arm(5, 186.9), self._arm(6, 184.5)],
+                     [self._arm(4, 170.9), self._arm(5, 170.8), self._arm(6, 169.3)]):
+            assert W.tradeoff_curve_and_knee(arms)["knee_note"]
+
+
 class TestAggregate:
     def test_ci_contains_mean_and_n(self):
         runs = [{"m": v} for v in (10.0, 12.0, 11.0, 9.0, 13.0)]

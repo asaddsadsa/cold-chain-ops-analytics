@@ -45,7 +45,7 @@ logger = logging.getLogger(__name__)
 _DAY_START_HOUR, _DAY_END_HOUR = C.WAREHOUSE_OPEN_HOURS  # 营业时段（秒轴 0 点 = 起点）
 # 代表日规模与到达集中度：读 config（情景假设，口径见 config 注释）
 _N_ORDERS_PER_DAY = C.SIM_N_ORDERS_PER_DAY
-_PEAK_INTENSITY = C.SIM_PEAK_INTENSITY
+_PEAK_INTENSITY = C.WAREHOUSE_PEAK_INTENSITY  # 到达强度（与数据层 A 同源，见 config 说明）
 
 
 def _abc_class_share() -> dict[str, float]:
@@ -345,8 +345,19 @@ def run_experiment_arm(
 def tradeoff_curve_and_knee(arms: list[dict]) -> dict:
     """实验二「时长—人力成本」权衡曲线与拐点。
 
-    人力成本 = 拣货员数 × PICKER_DAILY_COST；拐点 = 边际履约时长改善 / 边际成本，
-    取边际收益骤降处（二阶差分最大点）。
+    人力成本 = 拣货员数 × PICKER_DAILY_COST。
+
+    **拐点只有在「边际收益递减」真的成立时才报出来**：各档边际收益逐档下降、且首档为正，
+    取首档之后的那一档（即「过了这里，再加人买的就少了」）。否则 `knee_at_pickers` 为 `None`
+    并给出 `knee_note`，两种情形都如实区分：
+
+      - 最大边际落在**最后一档** → 说明「再加人还在变好」，是测试区间没覆盖到拐点，不是拐点；
+      - 各档边际都在噪声量级 → 分不出拐点。
+
+    这条规则是 2026-09-15 补的。原实现取 `sec_saved_per_yuan` 的**最大值**当拐点，与 docstring
+    写的「边际收益骤降处」是两回事：只要边际非单调，它就会翻到最后一档。数据层 A/F 的到达
+    强度统一到 1.8 之后，各档边际变成 [0.0005, 0.0065] 秒/元（都在噪声内），原实现便报出
+    「拐点 = 6 人」——而 6 人正是测试区间的上界，那不是拐点。
     """
     pts = sorted(
         [(a["n_pickers"], a["metrics"]["avg_fulfillment_sec"]["mean"],
@@ -365,9 +376,27 @@ def tradeoff_curve_and_knee(arms: list[dict]) -> dict:
             "delta_fulfillment_sec": round(dt, 2), "delta_cost": round(dc, 2),
             "sec_saved_per_yuan": round(-dt / dc, 4) if dc else None,
         })
-    # 拐点：边际改善（sec_saved_per_yuan）最大的那一档为「性价比拐点」
-    knee = max(marginals, key=lambda m: (m["sec_saved_per_yuan"] or -1)) if marginals else None
-    return {"curve": curve, "marginals": marginals, "knee_at_pickers": knee["to_pickers"] if knee else None}
+
+    vals = [m["sec_saved_per_yuan"] or 0.0 for m in marginals]
+    if len(vals) < 2:
+        knee, note = None, "档位不足两档，无法判断边际收益是否递减"
+    elif not all(b < a for a, b in zip(vals, vals[1:])):
+        top = max(range(len(vals)), key=lambda i: vals[i])
+        knee = None
+        note = (
+            f"各档边际收益不是逐档下降（{vals}），最大边际落在第 {top + 1} 段——"
+            "「再加人还在变好」说明测试区间没覆盖到拐点，而不是存在拐点"
+            if top == len(vals) - 1 else
+            f"各档边际收益非单调（{vals}），拐点不可判定"
+        )
+    elif vals[0] <= 0:
+        knee, note = None, f"首档边际收益已非正（{vals[0]} 秒/元），不存在性价比拐点"
+    else:
+        knee = marginals[0]["to_pickers"]
+        note = f"边际收益逐档下降（{vals}），{knee} 人之后每元买到的改善显著变小"
+
+    return {"curve": curve, "marginals": marginals,
+            "knee_at_pickers": knee, "knee_note": note}
 
 
 # ---------------------------------------------------------------------------

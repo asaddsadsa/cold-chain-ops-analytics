@@ -334,9 +334,14 @@ UI.chart_block(
         f"（95% CI {_sel['avg_fulfillment_sec']['ci95_low']:.1f}–{_sel['avg_fulfillment_sec']['ci95_high']:.1f}），"
         f"拣货员利用率 {_sel['picker_utilization']['mean']:.1%}，"
         f"日人力成本 {_sel['daily_labor_cost']:.0f} 元。"
-        f"边际收益递减，拐点在 {_trade['knee_at_pickers']} 人："
-        f"{_m0['from_pickers']}→{_m0['to_pickers']} 人每投入 1 元省 {_m0['sec_saved_per_yuan']:.3f} 秒，"
-        f"{_m1['from_pickers']}→{_m1['to_pickers']} 人降至 {_m1['sec_saved_per_yuan']:.3f} 秒。"
+        # 拐点有没有，由产物说了算：本业务量下各档边际收益都小且不呈递减，产物返回 None
+        + (f"边际收益递减，拐点在 {_trade['knee_at_pickers']} 人："
+           if _trade.get("knee_at_pickers") else
+           "**各档边际收益都很小、且不呈递减——这个业务量下分不出拐点**：")
+        + f"{_m0['from_pickers']}→{_m0['to_pickers']} 人每投入 1 元省 "
+          f"{_m0['sec_saved_per_yuan']:.4f} 秒，"
+        f"{_m1['from_pickers']}→{_m1['to_pickers']} 人 "
+        f"{_m1['sec_saved_per_yuan']:.4f} 秒。"
         "该图无日期/品类/片区维度，不受全局筛选影响。"
     ),
     table=_staff_tbl,

@@ -6,10 +6,10 @@
       "cv": 0.418
     },
     "sim": {
-      "pick_sec_per_line_mean": 110.31,
-      "cv": 0.406
+      "pick_sec_per_line_mean": 98.81,
+      "cv": 0.413
     },
-    "mean_ratio_sim_over_a": 1.016,
+    "mean_ratio_sim_over_a": 0.91,
     "note": "锚定数据层 A；CV 接近即形状一致，无需调参；偏差大时记录调参过程。"
   },
   "against_olist_shape": {
@@ -19,8 +19,8 @@
       "skew": 5.154
     },
     "sim_fulfillment": {
-      "cv": 0.552,
-      "skew": 0.951
+      "cv": 0.444,
+      "skew": 1.49
     },
     "note": "ADR-0001：不做绝对时长 KS（尺度不可比）；CV/偏度量级接近即形状对照通过。"
   },

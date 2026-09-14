@@ -41,8 +41,7 @@ _LATE_MIN_RANGE = (35, 240)  # 晚到偏移（分钟）：超过 30 分钟容差
 _ONTIME_MIN_RANGE = (-10, 25)  # 非晚到偏移（分钟）：容差内
 #: 与数据层 F 共用的仓内生成参数一律读 config（`WAREHOUSE_*` 那组），本模块不再自存一份——
 #: 两层各写一份时，「与数据层 F 互证」就只是注释里的一句话，没有任何东西强制它成立。
-_PEAK_HOURS = C.SIM_PEAK_HOURS  # 订单到达双高峰 (9-11, 14-16)，与数据层 F 互证
-_PEAK_INTENSITY, _BASE_INTENSITY = 1.8, 1.0  # NHPP 强度：高峰/平峰
+_PEAK_HOURS = C.SIM_PEAK_HOURS  # 订单到达双高峰 (9-11, 14-16)，与数据层 F 同源
 _ORDER_RANGE = C.DAILY_OUTBOUND_RANGE  # 日订单量 [200, 400]
 _QTY_RANGE = (1, 6)  # 单行数量 1–5 件
 _REPLENISH_FACTOR, _REPLENISH_SAFETY = 1.15, 6  # 补货系数与安全量
@@ -214,12 +213,17 @@ def plan_inbound(
 # 出库与盘点（逐日台账模拟）
 # ---------------------------------------------------------------------------
 def _minute_intensity() -> np.ndarray:
-    """订单到达 NHPP 强度（分钟粒度，08:00–18:00 共 600 分钟），9–11 / 14–16 双高峰。"""
+    """订单到达 NHPP 强度（分钟粒度，08:00–18:00 共 600 分钟），9–11 / 14–16 双高峰。
+
+    强度值读 `config.WAREHOUSE_PEAK_INTENSITY`——与数据层 F **同一个参数**。这两层曾经
+    各写一份且差一个数量级（A=1.8、F=10.0），而 ADR-0001 写明「到达过程与 14–16 点低谷
+    埋点相互印证」，互证要求两边真的是同一个到达过程。
+    """
     minutes = np.arange(C.WAREHOUSE_OPEN_HOURS[0] * 60, C.WAREHOUSE_OPEN_HOURS[1] * 60)
     hours = minutes // 60
-    intensity = np.full(len(minutes), _BASE_INTENSITY, dtype=float)
+    intensity = np.ones(len(minutes), dtype=float)
     for h0, h1 in _PEAK_HOURS:
-        intensity[(hours >= h0) & (hours < h1)] = _PEAK_INTENSITY
+        intensity[(hours >= h0) & (hours < h1)] = C.WAREHOUSE_PEAK_INTENSITY
     return intensity / intensity.sum()
 
 

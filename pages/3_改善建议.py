@@ -152,6 +152,16 @@ _wr = pts["weekly_replication"]
 _trade = exp2["tradeoff"]
 _knee = _trade["knee_at_pickers"]
 _m0, _m1 = _trade["marginals"][0], _trade["marginals"][1]
+# 拐点有没有由产物说了算（见 `warehouse_sim.tradeoff_curve_and_knee`）：只有边际收益
+# 逐档下降且首档为正才算有拐点。数据层 A/F 的到达强度统一后，各档边际都在噪声内，
+# 产物返回 None 并给出原因——本页照它说，不把「区间上界」讲成拐点。
+_knee_text = f"拐点在 {_knee} 人" if _knee else "无有效拐点"
+_marg_text = (
+    f"{_m0['from_pickers']}→{_m0['to_pickers']} 人每投入 1 元省 "
+    f"{_m0['sec_saved_per_yuan']:.4f} 秒，"
+    f"{_m1['from_pickers']}→{_m1['to_pickers']} 人 "
+    f"{_m1['sec_saved_per_yuan']:.4f} 秒"
+)
 
 _diag_rows = [
     {
@@ -160,10 +170,8 @@ _diag_rows = [
         "证据文件": f"{_wh_path} → embedding_checks.pick_slowdown_14_16",
         "关键读数": f"14–16 点 {_slow.sec_per_line_14_16:.1f} 秒/行 vs 其余 "
                     f"{_slow.sec_per_line_other:.1f} 秒/行（{_slow.ratio:.2f}×）",
-        "改善动作": "到货波次错峰 + 人力档位维持拐点（而非整体加人）",
-        "预期收益": f"人力拐点 {_knee} 人：4→5 人每投入 1 元省 "
-                    f"{_m0['sec_saved_per_yuan']:.4f} 秒，5→6 人降至 "
-                    f"{_m1['sec_saved_per_yuan']:.4f} 秒",
+        "改善动作": "到货波次错峰；人力不加档——本业务量下 4 人已够用",
+        "预期收益": f"{_knee_text}；{_marg_text}",
         "收益证据文件": _exp2_path,
     },
     {
@@ -217,15 +225,17 @@ _diag_rows = [
                         f"（延迟率 {ol['real_delay_rate']:.2%}）",
     },
     {
-        "问题诊断": "人力与时长存在边际收益递减拐点",
+        "问题诊断": "人力档位在 4–6 人之间分不出有效拐点（如实记录，不硬造一个）",
         "数据类别": "过程仿真",
         "证据文件": f"{_exp2_path} → tradeoff",
-        "关键读数": f"拐点 {_knee} 人；4/5/6 人履约 "
+        "关键读数": f"{_knee_text}；4/5/6 人履约 "
                     f"{_trade['curve'][0]['avg_fulfillment_sec']:.1f} / "
                     f"{_trade['curve'][1]['avg_fulfillment_sec']:.1f} / "
-                    f"{_trade['curve'][2]['avg_fulfillment_sec']:.1f} 秒/单",
-        "改善动作": "维持拐点档人数，先把预算投到时段性拥堵（错峰）而非加人",
-        "预期收益": f"{_m1['from_pickers']}→{_m1['to_pickers']} 人每日多花 "
+                    f"{_trade['curve'][2]['avg_fulfillment_sec']:.1f} 秒/单，"
+                    "三档 95% CI 大幅重叠",
+        "改善动作": "维持 4 人档；预算投到时段性拥堵（错峰）而非加人",
+        "预期收益": f"{_marg_text}"
+                    f"——{_m1['from_pickers']}→{_m1['to_pickers']} 人每日多花 "
                     f"{_m1['delta_cost']:.0f} 元仅省 "
                     f"{abs(_m1['delta_fulfillment_sec']):.2f} 秒",
         "收益证据文件": _exp2_path,
@@ -494,9 +504,11 @@ UI.chart_block(
         f"{_sel['avg_fulfillment_sec']['ci95_low']:.1f}–{_sel['avg_fulfillment_sec']['ci95_high']:.1f}），"
         f"拣货员利用率 {_sel['picker_utilization']['mean']:.1%}，"
         f"日人力成本 {_sel['daily_labor_cost']:.0f} 元。"
-        f"边际收益递减，**拐点在 {_knee} 人**：{_m0['from_pickers']}→{_m0['to_pickers']} 人"
-        f"每投入 1 元省 {_m0['sec_saved_per_yuan']:.3f} 秒，{_m1['from_pickers']}→"
-        f"{_m1['to_pickers']} 人降至 {_m1['sec_saved_per_yuan']:.3f} 秒。"
+        + (f"边际收益递减，**拐点在 {_knee} 人**：" if _knee else
+           "**各档边际收益都很小、且不呈递减——这个业务量下分不出拐点**：")
+        + f"{_m0['from_pickers']}→{_m0['to_pickers']} 人"
+        f"每投入 1 元省 {_m0['sec_saved_per_yuan']:.4f} 秒，{_m1['from_pickers']}→"
+        f"{_m1['to_pickers']} 人 {_m1['sec_saved_per_yuan']:.4f} 秒。"
         "该图无日期/品类/片区维度，不受全局筛选影响。"
     ),
     table=_staff_tbl,
