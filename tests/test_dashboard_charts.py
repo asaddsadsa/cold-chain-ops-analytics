@@ -59,3 +59,52 @@ class TestDualLineChartSlots:
         with pytest.raises(KeyError):
             charts.dual_line_chart([1, 2, 3], self.SERIES, y_title="元",
                                    slots={"柴油自购": 0})
+
+
+class TestSlotBars:
+    """每根柱各自绑定一个槽位（原先在运输页里就地实现）。"""
+
+    def test_each_bar_takes_its_own_slot(self):
+        fig = charts.slot_bars(["优化前", "优化后"], [100.0, 70.0], [0, 1], unit="km")
+        # 两根柱在同一条 trace 上，颜色按柱给（不是两条 trace）
+        assert list(fig.data[0].marker.color) == [theme.series(0), theme.series(1)]
+
+    def test_no_legend_because_the_x_labels_carry_identity(self):
+        fig = charts.slot_bars(["优化前", "优化后"], [1.0, 2.0], [0, 1])
+        assert fig.layout.showlegend is False
+
+    def test_values_are_labelled_on_the_bars(self):
+        fig = charts.slot_bars(["优化前", "优化后"], [1234.5, 999.0], [0, 1], decimals=1)
+        assert list(fig.data[0].text) == ["1,234.5", "999.0"]
+
+
+class TestBarWithCI:
+    """两臂对照 + 95% CI 误差棒（原先在仓储页里就地实现，页面注释说「charts 不含误差棒」）。"""
+
+    def test_error_bars_are_asymmetric_around_the_mean(self):
+        fig = charts.bar_with_ci(["原始", "分区"], [100.0, 80.0], [90.0, 75.0], [110.0, 85.0],
+                                 label="耗时长", unit=" 秒")
+        err = fig.data[0].error_y
+        assert list(err.array) == [10.0, 5.0]        # 上界 − 均值
+        assert list(err.arrayminus) == [10.0, 5.0]   # 均值 − 下界
+        assert err.symmetric is False
+
+    def test_single_series_so_no_legend(self):
+        fig = charts.bar_with_ci(["A", "B"], [1.0, 2.0], [0.5, 1.5], [1.5, 2.5], label="x")
+        assert fig.layout.showlegend is False
+
+
+class TestTcoCurve:
+    """单条 TCO 曲线：标注盈亏平衡里程与参考里程（原先在改善页里就地实现）。"""
+
+    def test_marks_the_breakeven_line_and_the_reference_point(self):
+        fig = charts.tco_curve("柴油自购", [0, 50, 100], [353.0, 408.5, 464.0], slot=0,
+                               breakeven_km=46.27, ref_km=87.62, ref_cost=450.3)
+        assert len(fig.layout.shapes) >= 1                      # 盈亏平衡竖线
+        assert any("46.3" in str(a.text) for a in fig.layout.annotations)
+        assert any("87.6" in str(a.text) for a in fig.layout.annotations)
+
+    def test_colour_is_pinned_to_the_entity_slot(self):
+        fig = charts.tco_curve("纯电租赁", [0, 50], [384.0, 406.0], slot=1,
+                               breakeven_km=46.27, ref_km=87.62, ref_cost=422.6)
+        assert fig.data[0].line.color == theme.series(1)

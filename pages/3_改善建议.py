@@ -24,34 +24,40 @@
 from __future__ import annotations
 
 import pandas as pd
-import plotly.graph_objects as go
 import streamlit as st
 
-# set_page_config 必须是脚本里第一个 Streamlit 调用（导入基建模块在其后）
-st.set_page_config(page_title="改善建议 · 区域仓配中心", page_icon="🛠️", layout="wide")
-
-from src import config as C  # noqa: E402
-from src import costing  # noqa: E402
-from src import warehouse_kpi as WK  # noqa: E402
-from src.dashboard import charts as CH  # noqa: E402
-from src.dashboard import components as UI  # noqa: E402
-from src.dashboard import data as D  # noqa: E402
-from src.dashboard import filters as F  # noqa: E402
-from src.dashboard import kpis, theme  # noqa: E402
-
-theme.register_plotly_template()
+from src import config as C
+from src import costing
+from src import warehouse_kpi as WK
+from src.dashboard import charts as CH
+from src.dashboard import components as UI
+from src.dashboard import data as D
+from src.dashboard import kpis, theme
+from src.dashboard import page as P
 
 # 本页真正吃到的产物：what-if 缓存、TCO、仿真档位、仓内 KPI、运输基线/优化、出库行、
 # 异常埋点、Olist（真实观测标定基准）。delivery_orders / regions 是共享侧边栏与
 # D.order_window() 的依赖，一并声明。
-D.require_artifacts((
-    "transport_whatif", "transport_tco",
-    "sim_whatif", "sim_exp2",
-    "warehouse_kpi", "transport_kpi",
-    "transport_anomaly_points",
-    "outbound", "olist_overall",
-    "delivery_orders", "regions",
-))
+f = P.bootstrap(
+    page_title="改善建议 · 区域仓配中心", page_icon="🛠️",
+    title="改善建议",
+    subtitle=lambda first, last: (
+        f"区域冷链城配中心 · 连续 {C.SIM_DAYS} 天运营模拟（{first.date()} ~ {last.date()}）· "
+        "「诊断→动作→收益」表由产物自动汇总，四个 what-if 控件读预计算缓存瞬时响应"
+    ),
+    applied="无——本页为全量口径，全局筛选不改变下列读数",
+    note="本页绝大多数读数是车队/仓/代表日的**标量**（车队的里程与成本、仓的行走成本、"
+         "代表日的 16 档预计算），没有日期、片区、品类维度，故日期范围 / 品类 / 配送区域三者"
+         "在本页都不生效。动力模式与成本参数由下方「TCO 与动力模式」区块自己的控件选择",
+    artifacts=(
+        "transport_whatif", "transport_tco",
+        "sim_whatif", "sim_exp2",
+        "warehouse_kpi", "transport_kpi",
+        "transport_anomaly_points",
+        "outbound", "olist_overall",
+        "delivery_orders", "regions",
+    ),
+)
 
 
 # ---------------------------------------------------------------------------
@@ -98,62 +104,6 @@ def _abc_recompute(a_cut: float, b_cut: float):
     """
     return WK.abc_classify(D.artifact("outbound"), (float(a_cut), float(b_cut)))
 
-
-def _tco_curve_figure(mode_label: str, mileage, cost, *, slot: int,
-                      breakeven_km: float, ref_km: float, ref_cost: float) -> go.Figure:
-    """单条 TCO 曲线：里程—日总成本，标出盈亏平衡里程与参考里程处的成本。
-
-    单序列故**不放图例**（标题即序列名）；颜色按实体固定分配（柴油永远槽 0、纯电永远槽 1），
-    不因切换模式而重排。参考线与标注只用基建的铬色 token，不写十六进制色值。
-    """
-    t = theme.tokens()
-    color = theme.series(slot)
-    fig = go.Figure(
-        go.Scatter(
-            x=list(mileage), y=list(cost), mode="lines+markers", name=mode_label,
-            line={"width": 2, "color": color}, marker={"size": 6, "color": color},
-            hovertemplate="%{x:.0f} km<br>" + mode_label + " %{y:,.2f} 元/日<extra></extra>",
-        )
-    )
-    fig.add_vline(
-        x=float(breakeven_km), line={"color": t["secondary_ink"], "width": 1},
-        annotation_text=f"盈亏平衡 {breakeven_km:.1f} km",
-        annotation_position="top left",
-        annotation_font={"color": t["secondary_ink"], "size": 11},
-    )
-    fig.add_annotation(
-        x=ref_km, y=ref_cost, text=f"参考里程 {ref_km:.1f} km / {ref_cost:,.2f} 元",
-        showarrow=True, arrowhead=2, ax=44, ay=-28,
-        font={"color": t["secondary_ink"], "size": 12},
-    )
-    fig.update_layout(
-        showlegend=False, height=340,
-        title={"text": f"{mode_label} 日总成本曲线（TCO）",
-               "font": {"size": 14, "color": t["primary_ink"]}, "x": 0},
-        yaxis={"title": "日总成本 (元)"}, xaxis={"title": "单车日行驶里程 (km)"},
-        margin={"l": 64, "r": 16, "t": 48, "b": 56},
-    )
-    return fig
-
-
-# ---------------------------------------------------------------------------
-# 页头与全局上下文
-# ---------------------------------------------------------------------------
-_first, _last = D.order_window()
-UI.page_header(
-    "改善建议",
-    f"区域冷链城配中心 · 连续 {C.SIM_DAYS} 天运营模拟（{_first.date()} ~ {_last.date()}）· "
-    "「诊断→动作→收益」表由产物自动汇总，四个 what-if 控件读预计算缓存瞬时响应",
-)
-
-f = F.sidebar()
-UI.context_bar(
-    f,
-    "无——本页为全量口径，全局筛选不改变下列读数",
-    "本页绝大多数读数是车队/仓/代表日的**标量**（车队的里程与成本、仓的行走成本、"
-    "代表日的 16 档预计算），没有日期、片区、品类维度，故日期范围 / 品类 / 配送区域三者"
-    "在本页都不生效。动力模式与成本参数由下方「TCO 与动力模式」区块自己的控件选择",
-)
 
 # 一次性读入本页所有产物（缓存原语挂在 data.py 上，随产物 mtime 自动失效）
 wh = D.warehouse_kpi()               # 仓内 KPI / ABC / 库位重排 / 埋点复现
@@ -615,7 +565,7 @@ UI.kpi_cards([
 ])
 
 UI.chart_block(
-    _tco_curve_figure(_mode_label, _mileage, _cost_curve, slot=_mode_slot,
+    CH.tco_curve(_mode_label, _mileage, _cost_curve, slot=_mode_slot,
                       breakeven_km=_be_km, ref_km=_ref_km, ref_cost=_ref_cost),
     caption=(
         f"{_mode_label} 在当前敏感性设置（{_PARAM_LABELS[_param_key]} = {_LEVEL_LABELS[_level]}，"

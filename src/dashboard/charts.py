@@ -184,6 +184,93 @@ def gauge(value: float, *, title: str, unit: str = "%", vmin: float = 0.0,
     return fig
 
 
+def slot_bars(labels, values, slots, *, unit: str = "", decimals: int = 2) -> go.Figure:
+    """每根柱各自绑定一个类别槽位的柱状图（**按实体固定上色**）。
+
+    与 `bar_chart` 的分工：`bar_chart` 是单序列一个颜色（可用 `highlight` 强调少数几根）；
+    这里每根柱代表**一个不同的实体**（如「优化前 / 优化后」两个方案），颜色是身份编码，
+    故槽位由调用方按实体指定，且不随筛选后的次序重排。
+    """
+    fig = go.Figure(
+        go.Bar(
+            x=list(labels), y=list(values),
+            marker={"color": [theme.series(s) for s in slots], "line": {"width": 0}},
+            text=[f"{v:,.{decimals}f}" for v in values],
+            textposition="outside", cliponaxis=False,
+            hovertemplate=f"%{{x}}<br>%{{y:,.{decimals}f}}{unit}<extra></extra>",
+        )
+    )
+    fig.update_layout(showlegend=False, bargap=0.35,
+                      yaxis={"title": unit}, xaxis={"title": ""})
+    return fig
+
+
+def bar_with_ci(labels, means, lows, highs, *, label: str, unit: str = "",
+                slot: int = 0, height: int = 300) -> go.Figure:
+    """两臂对照柱状图 + 95% CI 误差棒（单序列，故不放图例）。
+
+    `bar_chart` 不含误差棒，而「两臂各 30 次重复、报均值与 95% CI」是本项目对照实验的
+    标准呈现方式（实验一、实验二同理），故把它作为图表词汇的一员放在这里，而不是让每个
+    需要它的页面就地补一个。颜色仍取自 theme（同一序列一个颜色，不按臂换色）。
+    """
+    t = theme.tokens()
+    color = theme.series(slot)
+    fig = go.Figure(
+        go.Bar(
+            x=list(labels), y=list(means), name=label,
+            error_y={
+                "type": "data", "symmetric": False,
+                "array": [h - m for h, m in zip(highs, means)],
+                "arrayminus": [m - l for m, l in zip(means, lows)],
+                "color": t["secondary_ink"], "thickness": 1.2, "width": 8,
+            },
+            marker={"color": color, "line": {"width": 0}},
+            hovertemplate="%{x}<br>" + label + " %{y:.1f}" + unit + "<extra></extra>",
+        )
+    )
+    fig.update_layout(showlegend=False, bargap=0.35, height=height,
+                      yaxis={"title": unit}, xaxis={"title": ""},
+                      margin={"l": 56, "r": 16, "t": 24, "b": 40})
+    return fig
+
+
+def tco_curve(mode_label: str, mileage, cost, *, slot: int,
+              breakeven_km: float, ref_km: float, ref_cost: float) -> go.Figure:
+    """单条 TCO 曲线：里程—日总成本，标出盈亏平衡里程与参考里程处的成本。
+
+    单序列故**不放图例**（标题即序列名）；颜色按实体固定分配（柴油永远槽 0、纯电永远槽 1），
+    不因切换模式而重排。参考线与标注只用基建的铬色 token，不写十六进制色值。
+    """
+    t = theme.tokens()
+    color = theme.series(slot)
+    fig = go.Figure(
+        go.Scatter(
+            x=list(mileage), y=list(cost), mode="lines+markers", name=mode_label,
+            line={"width": 2, "color": color}, marker={"size": 6, "color": color},
+            hovertemplate="%{x:.0f} km<br>" + mode_label + " %{y:,.2f} 元/日<extra></extra>",
+        )
+    )
+    fig.add_vline(
+        x=float(breakeven_km), line={"color": t["secondary_ink"], "width": 1},
+        annotation_text=f"盈亏平衡 {breakeven_km:.1f} km",
+        annotation_position="top left",
+        annotation_font={"color": t["secondary_ink"], "size": 11},
+    )
+    fig.add_annotation(
+        x=ref_km, y=ref_cost, text=f"参考里程 {ref_km:.1f} km / {ref_cost:,.2f} 元",
+        showarrow=True, arrowhead=2, ax=44, ay=-28,
+        font={"color": t["secondary_ink"], "size": 12},
+    )
+    fig.update_layout(
+        showlegend=False, height=340,
+        title={"text": f"{mode_label} 日总成本曲线（TCO）",
+               "font": {"size": 14, "color": t["primary_ink"]}, "x": 0},
+        yaxis={"title": "日总成本 (元)"}, xaxis={"title": "单车日行驶里程 (km)"},
+        margin={"l": 64, "r": 16, "t": 48, "b": 56},
+    )
+    return fig
+
+
 def dual_line_chart(x, series: dict, *, y_title: str, unit: str = "",
                     slots: dict[str, int] | None = None,
                     height: int = 320) -> go.Figure:

@@ -20,8 +20,8 @@
 - **类别色按实体固定分配、不随筛选重排**：本页槽 0/1 固定给「优化前 / 优化后」，槽 2/3 固定给
   两种动力模式（柴油自购 / 纯电租赁），槽 4–7 固定给周度埋点四序列，因此同一页里「蓝」永远
   是优化前、不会因为换了筛选就变成别的实体。
-- 页首顺序：`set_page_config` → `register_plotly_template` → `require_artifacts` → 页头 →
-  侧边栏 → 上下文条；缺产物直接停下报错，**不显示 0**。
+- 页首那五步（`set_page_config` → 注册模板 → 查产物 → 页头 → 侧边栏 → 上下文条）由
+  `src/dashboard/page.bootstrap` 一次跑完；顺序有讲究，写在一处比各页抄一遍可靠。
 
 运行：在项目根执行 `streamlit run app.py`，从侧边栏进入本页。
 """
@@ -32,16 +32,15 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-st.set_page_config(page_title="运输分析 · 区域仓配中心", page_icon="🚚", layout="wide")
+import folium
 
-import folium  # noqa: E402
-
-from src import config as C  # noqa: E402
-from src.dashboard import charts as CH  # noqa: E402
-from src.dashboard import components as UI  # noqa: E402
-from src.dashboard import data as D  # noqa: E402
-from src.dashboard import filters as F  # noqa: E402
-from src.dashboard import kpis, theme  # noqa: E402
+from src import config as C
+from src.dashboard import charts as CH
+from src.dashboard import components as UI
+from src.dashboard import data as D
+from src.dashboard import filters as F
+from src.dashboard import kpis, theme
+from src.dashboard import page as P
 
 # ---------------------------------------------------------------------------
 # 本页固定的「实体 → 类别色槽位」映射（与 theme 的校验色板配套，见 theme.py）。
@@ -53,23 +52,32 @@ MODE_SLOT: dict[str, int] = {"diesel": 2, "ev": 3}
 #: 对比表里两种自营模式的指标名前缀（产物 `baseline_vs_optimized.csv` 的 metric 列）
 MODE_PREFIX: dict[str, str] = {"diesel": "柴油", "ev": "纯电"}
 
-
-# ---------------------------------------------------------------------------
-# 基建
-# ---------------------------------------------------------------------------
-theme.register_plotly_template()
-D.require_artifacts((
-    "transport_kpi",              # 代表日基线与优化 KPI、时间窗口径、代表日是哪天
-    "transport_comparison",       # 前后对比表（里程/用车数/成本/比率）
-    "transport_trips",            # 逐趟明细（满载率分布）
-    "transport_tco",              # 双模式 TCO 曲线、盈亏平衡里程、外包对照
-    "transport_weekly",           # 周度异常表（含周五 / R07 埋点列）
-    "transport_routes_optimized",  # 路线 GeoJSON（优化后）
-    "transport_routes_baseline",   # 路线 GeoJSON（优化前，地图 radio 可切）
-    "transport_anomaly_points",   # 埋点池化检验（周五 / R07 / 雨日）
-    "poi",                        # POI 名称（地图弹窗的显示名）
-    "anomalies",                  # 在途异常表（异常构成 / 温控达标率 / 片区）
-))
+# 副标题要显示代表日，而它得先从产物里读出来——`bootstrap` 会先查产物再调这个函数
+f = P.bootstrap(
+    page_title="运输分析 · 区域仓配中心", page_icon="🚚",
+    title="运输分析",
+    subtitle=lambda first, last: (
+        f"区域冷链城配 · 代表日 {D.transport_kpi().representative_day}"
+        f"（{C.SIM_DAYS} 天中订单量最大的工作日）的基线派车 vs OR-Tools 优化 · "
+        "全部数字来自 data/processed/ 产物文件，可逐项溯源"
+    ),
+    applied="日期范围、配送区域、成本口径",
+    note="日期范围与配送区域作用于**异常构成饼图、温控仪表、周度埋点图**；成本口径决定前后对比里"
+         "用哪一种动力的成本行。代表日口径的产物（路线地图、前后对比、满载率分布、TCO 与外包对照）"
+         "没有逐日/片区维度，日期与片区筛选对它们不生效——如实声明，不假装生效。",
+    artifacts=(
+        "transport_kpi",              # 代表日基线与优化 KPI、时间窗口径、代表日是哪天
+        "transport_comparison",       # 前后对比表（里程/用车数/成本/比率）
+        "transport_trips",            # 逐趟明细（满载率分布）
+        "transport_tco",              # 双模式 TCO 曲线、盈亏平衡里程、外包对照
+        "transport_weekly",           # 周度异常表（含周五 / R07 埋点列）
+        "transport_routes_optimized",  # 路线 GeoJSON（优化后）
+        "transport_routes_baseline",   # 路线 GeoJSON（优化前，地图 radio 可切）
+        "transport_anomaly_points",   # 埋点池化检验（周五 / R07 / 雨日）
+        "poi",                        # POI 名称（地图弹窗的显示名）
+        "anomalies",                  # 在途异常表（异常构成 / 温控达标率 / 片区）
+    ),
+)
 
 
 # ---------------------------------------------------------------------------
@@ -95,29 +103,6 @@ def _delta_note(change_pct: float, *, lower_is_better: bool) -> str:
     good = down == lower_is_better
     return (f"{'↓' if down else '↑'} {abs(change_pct):.2f}%（{'下降' if down else '上升'}"
             f" = {'改善' if good else '变差'}）")
-
-
-def _compare_bars(baseline: float, optimized: float, *, unit: str,
-                  decimals: int) -> go.Figure:
-    """同一指标「优化前 / 优化后」两根柱。
-
-    两根柱是**两个实体**（两个方案），按 PLAN_SLOT 固定上色；x 轴标签已经写明身份，
-    身份不靠颜色单独承担，故不放图例（单 trace）。
-    """
-    fig = go.Figure(
-        go.Bar(
-            x=[PLAN_LABEL["baseline"], PLAN_LABEL["optimized"]],
-            y=[baseline, optimized],
-            marker={"color": [theme.series(PLAN_SLOT["baseline"]),
-                              theme.series(PLAN_SLOT["optimized"])], "line": {"width": 0}},
-            text=[f"{baseline:,.{decimals}f}", f"{optimized:,.{decimals}f}"],
-            textposition="outside", cliponaxis=False,
-            hovertemplate=f"%{{x}}<br>%{{y:,.{decimals}f}}{unit}<extra></extra>",
-        )
-    )
-    fig.update_layout(showlegend=False, bargap=0.35,
-                      yaxis={"title": unit}, xaxis={"title": ""})
-    return fig
 
 
 def _grouped_compare(categories, baseline_vals, optimized_vals, *, unit: str,
@@ -148,24 +133,9 @@ def _hhmm(minutes) -> str:
 
 
 # ---------------------------------------------------------------------------
-# 页头与筛选
+# 关键口径
 # ---------------------------------------------------------------------------
 _kpi = D.transport_kpi()
-UI.page_header(
-    "运输分析",
-    f"区域冷链城配 · 代表日 {_kpi.representative_day}（{C.SIM_DAYS} 天中订单量最大的工作日）的"
-    "基线派车 vs OR-Tools 优化 · 全部数字来自 data/processed/ 产物文件，可逐项溯源",
-)
-
-f = F.sidebar()
-UI.context_bar(
-    f,
-    "日期范围、配送区域、成本口径",
-    "日期范围与配送区域作用于**异常构成饼图、温控仪表、周度埋点图**；成本口径决定前后对比里"
-    "用哪一种动力的成本行。代表日口径的产物（路线地图、前后对比、满载率分布、TCO 与外包对照）"
-    "没有逐日/片区维度，日期与片区筛选对它们不生效——如实声明，不假装生效。",
-)
-
 st.caption(
     f"**关键口径**：① 路线地图、前后对比、满载率分布、TCO 与外包对照均为**代表日 "
     f"{_kpi.representative_day} 单日**口径，OR-Tools 的完整精算只在该日进行；其余 "
@@ -301,7 +271,10 @@ _c0, _c1 = st.columns(2)
 with _c0:
     _r = _cmp_row("总里程")
     UI.chart_block(
-        _compare_bars(float(_r["baseline"]), float(_r["optimized"]), unit="km", decimals=2),
+        CH.slot_bars([PLAN_LABEL["baseline"], PLAN_LABEL["optimized"]],
+                     [float(_r["baseline"]), float(_r["optimized"])],
+                     [PLAN_SLOT["baseline"], PLAN_SLOT["optimized"]],
+                     unit="km", decimals=2),
         caption=f"总里程：{_delta_note(float(_r['change_pct']), lower_is_better=True)}",
         table=_rows_table("总里程 (km)", _r), table_label="总里程数据表",
     )
@@ -309,7 +282,10 @@ with _c1:
     _r = _cmp_row("用车数")
     _trips_by_plan = D.artifact("transport_trips").groupby("plan").size().to_dict()
     UI.chart_block(
-        _compare_bars(float(_r["baseline"]), float(_r["optimized"]), unit="台", decimals=0),
+        CH.slot_bars([PLAN_LABEL["baseline"], PLAN_LABEL["optimized"]],
+                     [float(_r["baseline"]), float(_r["optimized"])],
+                     [PLAN_SLOT["baseline"], PLAN_SLOT["optimized"]],
+                     unit="台", decimals=0),
         caption=f"用车数：{_delta_note(float(_r['change_pct']), lower_is_better=True)}"
                 f"（用车数 = 趟次数：优化前 {_trips_by_plan.get('baseline', 0)} 趟对应 "
                 f"{float(_r['baseline']):.0f} 台、优化后 {_trips_by_plan.get('optimized', 0)} 趟对应 "
@@ -322,7 +298,10 @@ _c2, _c3 = st.columns(2)
 with _c2:
     _r = _cmp_row(MODE_PREFIX[f.cost_mode] + "总成本")
     UI.chart_block(
-        _compare_bars(float(_r["baseline"]), float(_r["optimized"]), unit="元", decimals=2),
+        CH.slot_bars([PLAN_LABEL["baseline"], PLAN_LABEL["optimized"]],
+                     [float(_r["baseline"]), float(_r["optimized"])],
+                     [PLAN_SLOT["baseline"], PLAN_SLOT["optimized"]],
+                     unit="元", decimals=2),
         caption=f"代表日总成本（{_mode_lbl}，由侧边栏成本口径决定）："
                 f"{_delta_note(float(_r['change_pct']), lower_is_better=True)}",
         table=_rows_table(f"{_mode_lbl}总成本 (元)", _r), table_label="总成本数据表",
@@ -330,7 +309,10 @@ with _c2:
 with _c3:
     _r = _cmp_row(MODE_PREFIX[f.cost_mode] + "单均成本")
     UI.chart_block(
-        _compare_bars(float(_r["baseline"]), float(_r["optimized"]), unit="元/单", decimals=2),
+        CH.slot_bars([PLAN_LABEL["baseline"], PLAN_LABEL["optimized"]],
+                     [float(_r["baseline"]), float(_r["optimized"])],
+                     [PLAN_SLOT["baseline"], PLAN_SLOT["optimized"]],
+                     unit="元/单", decimals=2),
         caption=f"代表日单均成本（{_mode_lbl}）："
                 f"{_delta_note(float(_r['change_pct']), lower_is_better=True)}",
         table=_rows_table(f"{_mode_lbl}单均成本 (元/单)", _r), table_label="单均成本数据表",

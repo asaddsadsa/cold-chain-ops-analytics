@@ -11,27 +11,23 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-st.set_page_config(page_title="运营驾驶舱 · 区域仓配中心", page_icon="🚚", layout="wide")
+from src import config as C
+from src.dashboard import components as UI
+from src.dashboard import data as D
+from src.dashboard import filters as F
+from src.dashboard import kpis
+from src.dashboard import page as P
 
-from src import config as C  # noqa: E402
-from src.dashboard import components as UI  # noqa: E402
-from src.dashboard import data as D  # noqa: E402
-from src.dashboard import filters as F  # noqa: E402
-from src.dashboard import kpis, theme  # noqa: E402
-
-theme.register_plotly_template()
-D.require_artifacts()
-
-_first, _last = D.order_window()
-UI.page_header(
-    "运营驾驶舱",
-    f"区域冷链城配中心 · 连续 {C.SIM_DAYS} 天运营模拟（{_first.date()} ~ {_last.date()}）· "
-    "数字全部来自 data/processed/ 产物文件，可逐项溯源",
+f = P.bootstrap(
+    page_title="运营驾驶舱 · 区域仓配中心", page_icon="🚚",
+    title="运营驾驶舱",
+    subtitle=lambda first, last: (
+        f"区域冷链城配中心 · 连续 {C.SIM_DAYS} 天运营模拟（{first.date()} ~ {last.date()}）· "
+        "数字全部来自 data/processed/ 产物文件，可逐项溯源"
+    ),
+    applied="日期范围作用于 KPI 卡片与趋势图；配送区域作用于异常预警清单",
+    note="品类与运输侧无关（配送订单表无品类字段，已在侧边栏注明）",
 )
-
-f = F.sidebar()
-UI.context_bar(f, "日期范围作用于 KPI 卡片与趋势图；配送区域作用于异常预警清单",
-               "品类与运输侧无关（配送订单表无品类字段，已在侧边栏注明）")
 
 # ---------------------------------------------------------------------------
 # 一、KPI 卡片（需求 43）

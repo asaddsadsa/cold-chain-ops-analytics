@@ -12,77 +12,35 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-import plotly.graph_objects as go
 import streamlit as st
 
-# set_page_config 必须是脚本里第一个 Streamlit 调用（导入基建模块在其后）
-st.set_page_config(page_title="仓储分析 · 区域仓配中心", page_icon="📦", layout="wide")
-
-from src import config as C  # noqa: E402
-from src.dashboard import charts as CH  # noqa: E402
-from src.dashboard import components as UI  # noqa: E402
-from src.dashboard import data as D  # noqa: E402
-from src.dashboard import filters as F  # noqa: E402
-from src.dashboard import kpis, theme  # noqa: E402
-
-theme.register_plotly_template()
+from src import config as C
+from src.dashboard import charts as CH
+from src.dashboard import components as UI
+from src.dashboard import data as D
+from src.dashboard import kpis, theme
+from src.dashboard import page as P
 
 # 本页真正吃到的产物：仓内 KPI/日表与三张下钻、库位与出库、仿真对照实验、Olist 履约。
 # delivery_orders / regions 是共享侧边栏与 D.order_window() 的依赖，一并声明。
-D.require_artifacts((
-    "warehouse_kpi", "warehouse_daily",
-    "warehouse_abc_pareto", "warehouse_picking_hour", "warehouse_stocktake_category",
-    "location_master", "outbound",
-    "sim_exp1", "sim_exp2", "sim_whatif",
-    "olist_overall", "olist_state", "olist_orders",
-    "delivery_orders", "regions",
-))
-
-
-def _ci_bar(labels, means, lows, highs, *, label: str, unit: str, slot: int = 0,
-            height: int = 300) -> go.Figure:
-    """两臂对照柱状图 + 95% CI 误差棒（单序列，故不放图例）。
-
-    现有 `charts.bar_chart` 不含误差棒，而实验一验收要求「含 95% CI」，故就地补一个最小
-    构造器：颜色仍取自 theme（同一序列一个颜色，不按臂换色），不引入任何硬编码色值。
-    """
-    color = theme.series(slot)
-    step = theme.tokens()
-    fig = go.Figure(
-        go.Bar(
-            x=list(labels), y=list(means), name=label,
-            error_y={
-                "type": "data", "symmetric": False,
-                "array": [h - m for h, m in zip(highs, means)],
-                "arrayminus": [m - l for m, l in zip(means, lows)],
-                "color": step["secondary_ink"], "thickness": 1.2, "width": 8,
-            },
-            marker={"color": color, "line": {"width": 0}},
-            hovertemplate="%{x}<br>" + label + " %{y:.1f}" + unit + "<extra></extra>",
-        )
-    )
-    fig.update_layout(showlegend=False, bargap=0.35, height=height,
-                      yaxis={"title": unit}, xaxis={"title": ""},
-                      margin={"l": 56, "r": 16, "t": 24, "b": 40})
-    return fig
-
-
-# ---------------------------------------------------------------------------
-# 页头与全局上下文
-# ---------------------------------------------------------------------------
-_first, _last = D.order_window()
-UI.page_header(
-    "仓储分析",
-    f"区域仓配中心 · 连续 {C.SIM_DAYS} 天运营模拟（{_first.date()} ~ {_last.date()}）· "
-    "仓内指标来自仿真仓（数据层 A/F），履约对比来自 Olist 实测（数据层 B）",
-)
-
-f = F.sidebar()
-UI.context_bar(
-    f,
-    "日期范围（仅作用于「逐日仓内指标」）、品类（仅作用于「盘点差异品类」）",
-    "配送区域在本页不生效：仓内指标与 Olist 州下钻都没有片区（R01–R08）维度；"
-    "成本口径属运输侧，与仓内无关。",
+f = P.bootstrap(
+    page_title="仓储分析 · 区域仓配中心", page_icon="📦",
+    title="仓储分析",
+    subtitle=lambda first, last: (
+        f"区域仓配中心 · 连续 {C.SIM_DAYS} 天运营模拟（{first.date()} ~ {last.date()}）· "
+        "仓内指标来自仿真仓（数据层 A/F），履约对比来自 Olist 实测（数据层 B）"
+    ),
+    applied="日期范围（仅作用于「逐日仓内指标」）、品类（仅作用于「盘点差异品类」）",
+    note="配送区域在本页不生效：仓内指标与 Olist 州下钻都没有片区（R01–R08）维度；"
+         "成本口径属运输侧，与仓内无关。",
+    artifacts=(
+        "warehouse_kpi", "warehouse_daily",
+        "warehouse_abc_pareto", "warehouse_picking_hour", "warehouse_stocktake_category",
+        "location_master", "outbound",
+        "sim_exp1", "sim_exp2", "sim_whatif",
+        "olist_overall", "olist_state", "olist_orders",
+        "delivery_orders", "regions",
+    ),
 )
 
 kpi = D.warehouse_kpi()
@@ -301,7 +259,7 @@ st.markdown("**实验一：原始布局 vs ABC 分区**（各 30 次重复，误
 _e1 = st.columns(2)
 with _e1[0]:
     UI.chart_block(
-        _ci_bar(["原始布局", "ABC 分区"],
+        CH.bar_with_ci(["原始布局", "ABC 分区"],
                 [_orig["avg_order_pick_sec"]["mean"], _zoned["avg_order_pick_sec"]["mean"]],
                 [_orig["avg_order_pick_sec"]["ci95_low"], _zoned["avg_order_pick_sec"]["ci95_low"]],
                 [_orig["avg_order_pick_sec"]["ci95_high"], _zoned["avg_order_pick_sec"]["ci95_high"]],
@@ -324,7 +282,7 @@ with _e1[0]:
     )
 with _e1[1]:
     UI.chart_block(
-        _ci_bar(["原始布局", "ABC 分区"],
+        CH.bar_with_ci(["原始布局", "ABC 分区"],
                 [_orig["avg_walk_m_per_order"]["mean"], _zoned["avg_walk_m_per_order"]["mean"]],
                 [_orig["avg_walk_m_per_order"]["ci95_low"], _zoned["avg_walk_m_per_order"]["ci95_low"]],
                 [_orig["avg_walk_m_per_order"]["ci95_high"], _zoned["avg_walk_m_per_order"]["ci95_high"]],

@@ -63,8 +63,18 @@ class TestRegistry:
             assert D.ARTIFACT_BY_KEY[key].read_kwargs.get("parse_dates") == ["date"]
 
 
+def _string_constants(node: ast.AST) -> set[str]:
+    return {n.value for n in ast.walk(node)
+            if isinstance(n, ast.Constant) and isinstance(n.value, str)}
+
+
 def _page_artifact_keys(path: Path) -> set[str]:
-    """页面里出现的产物 key：`D.require_artifacts((...))` 声明 + `D.artifact("literal")` 引用。
+    """页面里出现的产物 key，来自两处声明：
+
+      - `require_artifacts((...))` 的**位置参数**；
+      - `page.bootstrap(..., artifacts=(...))` 的 `artifacts` **关键字参数**——
+        只看这个关键字：`bootstrap` 还收 page_title / subtitle 等字符串，整段扫会把它们
+        当成 key 混进来。
 
     用 AST 而不是正则：页面 docstring 里也有 `data/processed/` 字样，正则会误报。
     """
@@ -75,14 +85,15 @@ def _page_artifact_keys(path: Path) -> set[str]:
             continue
         func = node.func
         name = func.attr if isinstance(func, ast.Attribute) else None
-        if name == "require_artifacts" and node.args:
-            for elt in ast.walk(node.args[0]):
-                if isinstance(elt, ast.Constant) and isinstance(elt.value, str):
-                    keys.add(elt.value)
-        if name == "artifact" and node.args:
-            arg = node.args[0]
-            if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
-                keys.add(arg.value)
+        if name == "require_artifacts":
+            for arg in node.args:
+                keys |= _string_constants(arg)
+        elif name == "bootstrap":
+            for kw in node.keywords:
+                if kw.arg == "artifacts":
+                    keys |= _string_constants(kw.value)
+        elif name == "artifact" and node.args:
+            keys |= _string_constants(node.args[0])
     return keys
 
 
