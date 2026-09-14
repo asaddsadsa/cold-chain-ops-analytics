@@ -5,7 +5,7 @@
 与从权威源下载的 best-known 最优解对比 gap%，gap>10% 不放行。
 
 算例与 best-known 来源：PUC-Rio CVRPLIB（见 data/raw/solomon/SOURCE.md）。
-**严禁凭记忆编造算例数据或最优解**：缺失时报错并给手动放置说明。
+**严禁凭记忆编造算例数据或最优解**：本地缺失时自动从该源取；取不到则报错并给手动放置说明。
 
 运行方式（项目根）：python -m src.solomon_validate
 数据类别：学术基准（见 data_sources_ledger.md 第 1 节）。
@@ -20,6 +20,7 @@ import re
 from pathlib import Path
 
 import numpy as np
+import requests
 
 from src import config as C
 
@@ -144,10 +145,68 @@ def parse_bks(text: str) -> tuple[list[list[int]], float]:
 
 
 # ---------------------------------------------------------------------------
-# 获取（本地优先，缺失报错不编造）
+# 获取（本地优先 → 缺失自动取 → 取不到报错，全程不编造）
 # ---------------------------------------------------------------------------
+#: 算例与 best-known 的权威来源：PUC-Rio CVRPLIB。
+#: GitHub 与 SINTEF TOP 官方页在本机网络不可达，故只用这个源（见 MANUAL_PLACE_HINT）。
+CVRPLIB_BASE = "https://galgos.inf.puc-rio.br/cvrplib/en/download"
+CVRPLIB_INSTANCES_URL = "https://galgos.inf.puc-rio.br/cvrplib/en/instances/2"
+#: 算例名 → CVRPLIB 实例编号
+CVRPLIB_INSTANCE_ID: dict[str, int] = {"C101": 380, "R101": 397, "RC101": 420}
+
+
+def ensure_instance_files(name: str, sol_dir: Path | None = None, *,
+                          timeout: float = 30.0) -> Path:
+    """确保算例与 best-known 就位：本地已有就不动，缺了才从 CVRPLIB 取。
+
+    **本地优先是刻意的**：已经放好的文件不会被网络上的版本悄悄换掉，重跑结果才可比。
+    「算法门禁」的严肃性在于基准来源可追溯，不在于必须手工搬运——从权威源自动取与手工
+    放置得到的是同一份文件，而**编造算例或凭记忆填 BKS** 是本模块唯一禁止的事。因此这里
+    的失败路径是抛错 + 给手动说明，不是退回一个「差不多」的替代品。
+    """
+    sol_dir = Path(sol_dir) if sol_dir is not None else C.RAW_SOLOMON_DIR
+    inst_f, bks_f = sol_dir / f"{name}.txt", sol_dir / f"{name}.sol"
+    if inst_f.exists() and bks_f.exists():
+        return sol_dir
+
+    iid = CVRPLIB_INSTANCE_ID.get(name)
+    if iid is None:
+        raise FileNotFoundError(
+            f"未知算例 {name}，没有对应的 CVRPLIB 实例编号\n"
+            + MANUAL_PLACE_HINT.format(dir=sol_dir)
+        )
+    logger.info("本地缺 %s，从 CVRPLIB 获取（实例编号 %d）...", name, iid)
+    sol_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        for kind, dest in (("instance", inst_f), ("bks", bks_f)):
+            resp = requests.get(f"{CVRPLIB_BASE}/{kind}/{iid}", timeout=timeout)
+            resp.raise_for_status()
+            dest.write_text(resp.text, encoding="utf-8")
+        src = sol_dir / "SOURCE.md"
+        if not src.exists():
+            src.write_text(
+                f"# Solomon 算例来源\n\n全部算例与 best-known 取自 PUC-Rio CVRPLIB（{CVRPLIB_INSTANCES_URL}），\n"
+                "由 `src.solomon_validate.ensure_instance_files` 按实例编号自动获取：\n\n"
+                + "\n".join(f"- {n} → 实例编号 {i}" for n, i in sorted(CVRPLIB_INSTANCE_ID.items()))
+                + "\n\n本目录已 gitignore；文件一旦落盘即不再重取，保证重跑可比。\n",
+                encoding="utf-8",
+            )
+    except Exception as exc:
+        for f in (inst_f, bks_f):  # 不留半截文件——否则下次会被当成「本地已有」
+            f.unlink(missing_ok=True)
+        raise FileNotFoundError(
+            f"{name} 获取失败：{type(exc).__name__}: {exc}\n"
+            + MANUAL_PLACE_HINT.format(dir=sol_dir)
+        ) from exc
+    return sol_dir
+
+
 def load_instance_and_bks(name: str, sol_dir: Path | None = None) -> tuple[SolomonInstance, list[list[int]], float]:
-    """读取算例 + BKS。缺失时抛 FileNotFoundError 并给手动放置说明。"""
+    """读取算例 + BKS。**纯读取**，不触网——缺失时抛 FileNotFoundError 并给手动放置说明。
+
+    自动获取走 `ensure_instance_files`，由 `validate()` 在读取前调用。分开是为了让「文件
+    到底在不在」这件事只有一个答案：读取函数只回答这个，取文件是另一件事。
+    """
     sol_dir = Path(sol_dir) if sol_dir is not None else C.RAW_SOLOMON_DIR
     inst_f, bks_f = sol_dir / f"{name}.txt", sol_dir / f"{name}.sol"
     missing = [str(f) for f in (inst_f, bks_f) if not f.exists()]
@@ -163,7 +222,8 @@ def load_instance_and_bks(name: str, sol_dir: Path | None = None) -> tuple[Solom
 # ---------------------------------------------------------------------------
 # OR-Tools 建模（与模块二同构：载重 + 时间窗 + 车辆数优先 + 距离最小）
 # ---------------------------------------------------------------------------
-def solve_vrptw(inst: SolomonInstance, time_limit_sec: float | None = None) -> dict:
+def solve_vrptw(inst: SolomonInstance, time_limit_sec: float | None = None,
+                solution_limit: int | None = None) -> dict:
     """OR-Tools 求解 VRPTW。返回 {vehicles, distance, scaled_distance, status, 策略}。
 
     目标（Solomon 惯例的双目标，按优先级）：
@@ -227,6 +287,10 @@ def solve_vrptw(inst: SolomonInstance, time_limit_sec: float | None = None) -> d
 
     params = pywrapcp.DefaultRoutingSearchParameters()
     params.local_search_metaheuristic = routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
+    # 主停止条件是**解数**不是墙钟：routing 搜索没有随机源，墙钟是唯一让 gap 随机器负载
+    # 漂移的东西（见 config.VRPTW_SOLUTION_LIMIT 的说明）。时限退居安全网。
+    params.solution_limit = (C.VRPTW_SOLUTION_LIMIT if solution_limit is None
+                             else int(solution_limit))
     params.time_limit.FromSeconds(int(time_limit_sec))
     # 首解策略用 PARALLEL_CHEAPEST_INSERTION 而非 PATH_CHEAPEST_ARC：
     # 后者在紧时间窗算例（R101/RC101）上构造不出可行首解 → 整体无解（实测捕获）；
@@ -330,6 +394,7 @@ def validate(
 
     results = []
     for name in instances:
+        ensure_instance_files(name, sol_dir)
         inst, bks_routes, bks_cost = load_instance_and_bks(name, sol_dir)
         bks_veh = len(bks_routes)
         logger.info("求解 %s（%d 客户，容量 %d，时限 %.0fs）...",

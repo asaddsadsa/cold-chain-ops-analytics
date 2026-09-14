@@ -245,18 +245,109 @@ class TestArrivalIntensityIsSharedWithLayerA:
         assert not hasattr(C, "SIM_PEAK_INTENSITY")
 
 
+class TestReleaseIsSharedWithLayerA:
+    """「释放」是两层共享的一个概念、一个参数。
+
+    数据层 A 一直有 `_RELEASE_DELAY_MIN`（订单释放到开始拣货的延迟，均值 25 分钟），
+    数据层 F 此前完全没有这一环——仿真里订单一到就抢拣货员。参数上移 config 后两层读
+    同一个数；**实现仍然不同**（层 A 是每单独立的随机延迟、层 F 是窗界同步释放），
+    差异记在 config 注释里，不靠注释假装一致。
+    """
+
+    def test_layer_a_reads_the_shared_constant(self):
+        from src import gen_warehouse_data as GD
+        assert GD._RELEASE_DELAY_MIN == C.WAREHOUSE_RELEASE_DELAY_MIN
+
+    def test_wave_window_is_calibrated_to_the_release_delay(self):
+        """W = 2 × 释放延迟均值 —— 即让「平均累积等待 W/2」等于层 A 的延迟均值。
+
+        这条把 W 从「挑一个数」钉成「校准出来的数」：谁要改 `WAREHOUSE_RELEASE_DELAY_MIN`，
+        这条会红，逼他同时想清楚 W 该怎么办。
+        """
+        assert C.WAREHOUSE_WAVE_INTERVAL_MIN == pytest.approx(
+            2 * (sum(C.WAREHOUSE_RELEASE_DELAY_MIN) / 2))
+
+
+class TestWaveRelease:
+    """「订单到达」与「拣货释放」是两件事，波次释放把它们分开。
+
+    订单一到就抢拣货员，等于假设「拣货员随时有空接单」。这个假设在 300 单/天的欠载系统里
+    不显眼，却让实验二失去机理：没有累积就没有排队，加人自然换不来任何改善。
+    """
+
+    def test_zero_interval_releases_immediately(self):
+        for t in (8 * 3600, 8 * 3600 + 1234, 17 * 3600):
+            assert W.release_second(t, 0) == t
+
+    def test_release_snaps_forward_to_the_next_wave_boundary(self):
+        w, base = 50, 8 * 3600
+        assert W.release_second(base + 60, w) == base + w * 60          # 刚过起点 → 第一窗界
+        assert W.release_second(base + w * 60, w) == base + w * 60 * 2  # 正落在窗界 → 下一窗
+        assert W.release_second(9 * 3600, w) == base + w * 60 * 2
+
+    def test_zero_wave_is_identical_to_the_old_call(self, small_master):
+        """W=0 的口径必须与「不传该参数」逐字段相同——既有产物的可比性靠这条。"""
+        sku, loc = small_master
+        lay = W.build_layout(sku, loc, "abc_zoned")
+        ids, wt = W.sku_sampling_weights(sku)
+        a = W.run_one_sim(lay, 4, seed=5, n_orders=40, sku_ids=ids, sku_weights=wt)
+        b = W.run_one_sim(lay, 4, seed=5, n_orders=40, sku_ids=ids, sku_weights=wt,
+                          wave_interval_min=0.0)
+        assert a == b
+
+    def test_wave_wait_is_independent_of_headcount(self, small_master):
+        """波次累积等待由**作业组织**决定，加多少人都不变。
+
+        这正是「杠杆在波次窗口、不在人数」的机理：端到端时长里那一段大头的等待，
+        人力档位碰都碰不到，能压的只有排队那一小块。
+        """
+        sku, loc = small_master
+        lay = W.build_layout(sku, loc, "abc_zoned")
+        ids, wt = W.sku_sampling_weights(sku)
+        waits = [W.run_one_sim(lay, n, seed=11, n_orders=120, sku_ids=ids, sku_weights=wt,
+                               wave_interval_min=60)["avg_wave_wait_sec"]
+                 for n in (3, 6)]
+        assert waits[0] == pytest.approx(waits[1], rel=0.05)
+
+    def test_batching_is_what_creates_the_queue(self, small_master):
+        """没有批量释放就没有排队——积压得先被攒起来才存在。"""
+        sku, loc = small_master
+        lay = W.build_layout(sku, loc, "abc_zoned")
+        ids, wt = W.sku_sampling_weights(sku)
+        kw = dict(seed=3, n_orders=60, sku_ids=ids, sku_weights=wt)
+        idle = W.run_one_sim(lay, 4, **kw)
+        waved = W.run_one_sim(lay, 4, wave_interval_min=60, **kw)
+        assert idle["avg_queue_wait_sec"] < 5.0
+        assert waved["avg_queue_wait_sec"] > idle["avg_queue_wait_sec"]
+
+    def test_fulfillment_excludes_the_wave_wait(self, small_master):
+        """作业口径（释放→发货）不含波次等待，端到端口径（到达→发货）含。
+
+        两者必须分开：混在一起，人力实验的效应会被那段与人数无关的等待稀释掉。
+        """
+        sku, loc = small_master
+        lay = W.build_layout(sku, loc, "abc_zoned")
+        ids, wt = W.sku_sampling_weights(sku)
+        r = W.run_one_sim(lay, 4, seed=3, n_orders=60, sku_ids=ids, sku_weights=wt,
+                          wave_interval_min=60)
+        assert r["avg_order_to_ship_sec"] == pytest.approx(
+            r["avg_fulfillment_sec"] + r["avg_wave_wait_sec"], rel=0.01)
+        assert r["avg_wave_wait_sec"] > 0
+
+
 class TestKneeIsOnlyReportedWhenItExists:
-    """拐点只在**边际收益真的递减**时报出来。
+    """拐点只在**边际收益显著递减**时报出来。
 
     原实现取 `sec_saved_per_yuan` 的最大值当拐点，与 docstring 写的「边际收益骤降处」是
-    两回事：边际一非单调就会翻到最后一档。到达强度统一后各档边际变成 [0.0005, 0.0065]，
-    原实现便报出「拐点 = 6 人」——而 6 正是测试区间的上界，那不是拐点。
+    两回事：边际一非单调就会翻到最后一档。改成「逐档递减」之后仍不够——波次窗口为 0
+    （订单到达即抢拣货员）时三档均值差本就在噪声内，点估计却恰好递减，于是又报出一个
+    不存在的拐点。所以判据最终落在**显著性**上：两侧 CI 重叠的档位不能拿来排序。
     """
 
     @staticmethod
-    def _arm(n_pickers: int, mean_sec: float) -> dict:
+    def _arm(n_pickers: int, mean_sec: float, *, std: float = 1.0, n: int = 30) -> dict:
         return {"n_pickers": n_pickers,
-                "metrics": {"avg_fulfillment_sec": {"mean": mean_sec}}}
+                "metrics": {"avg_fulfillment_sec": {"mean": mean_sec, "std": std, "n": n}}}
 
     def test_reports_a_knee_when_returns_diminish(self):
         arms = [self._arm(4, 195.6), self._arm(5, 186.9), self._arm(6, 184.5)]
@@ -271,10 +362,25 @@ class TestKneeIsOnlyReportedWhenItExists:
         assert got["knee_at_pickers"] is None
         assert "没覆盖到拐点" in got["knee_note"]
 
+    def test_no_knee_when_every_marginal_is_inside_the_noise(self):
+        """点估计递减、但每档差异都跨 0 —— 这是「到达即抢拣货员」的真实形状。
+
+        三档均值只差零点几秒，重复仿真的噪声比它还大。只看点估计会报出一个拐点，
+        而那个「拐点」换个种子就没了。
+        """
+        arms = [self._arm(4, 170.88, std=8.0), self._arm(5, 170.77, std=9.0),
+                self._arm(6, 169.28, std=7.0)]
+        got = W.tradeoff_curve_and_knee(arms)
+        assert got["knee_at_pickers"] is None
+        assert "不可区分" in got["knee_note"]
+        assert [m["significant"] for m in got["marginals"]] == [False, False]
+
     def test_every_case_states_its_reason(self):
         """无论有没有拐点，都给出可读的理由——None 不带原因等于什么都没说。"""
         for arms in ([self._arm(4, 195.6), self._arm(5, 186.9), self._arm(6, 184.5)],
-                     [self._arm(4, 170.9), self._arm(5, 170.8), self._arm(6, 169.3)]):
+                     [self._arm(4, 170.9), self._arm(5, 170.8), self._arm(6, 169.3)],
+                     [self._arm(4, 170.9, std=8.0), self._arm(5, 170.8, std=8.0),
+                      self._arm(6, 169.3, std=8.0)]):
             assert W.tradeoff_curve_and_knee(arms)["knee_note"]
 
 
@@ -293,13 +399,14 @@ class TestAggregate:
 
 
 class TestTradeoff:
+    @staticmethod
+    def _arm(n: int, mean: float, std: float = 1.0) -> dict:
+        return {"n_pickers": n,
+                "metrics": {"avg_fulfillment_sec": {"mean": mean, "std": std, "n": 30}}}
+
     def test_knee_at_best_marginal(self):
         # 构造：4→5 大幅改善、5→6 微改善 → 拐点应在 5
-        arms = [
-            {"n_pickers": 4, "metrics": {"avg_fulfillment_sec": {"mean": 1000.0}}},
-            {"n_pickers": 5, "metrics": {"avg_fulfillment_sec": {"mean": 700.0}}},
-            {"n_pickers": 6, "metrics": {"avg_fulfillment_sec": {"mean": 690.0}}},
-        ]
+        arms = [self._arm(4, 1000.0), self._arm(5, 700.0), self._arm(6, 690.0)]
         out = W.tradeoff_curve_and_knee(arms)
         assert out["knee_at_pickers"] == 5
         assert len(out["curve"]) == 3

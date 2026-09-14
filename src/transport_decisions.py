@@ -837,7 +837,8 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     parser = argparse.ArgumentParser(description="模块二（下）：周度复盘 + TCO + what-if 预计算")
     parser.add_argument("--whatif-seconds", type=float, default=None,
-                        help=f"what-if 每档求解时限（秒），默认 {C.WHATIF_TIME_LIMIT_SEC:.0f}")
+                        help=f"what-if 每档求解的墙钟**安全网**（秒），默认 {C.WHATIF_TIME_LIMIT_SEC:.0f}；"
+                             "正常路径由解数决定何时停，传小值可压缩耗时但结果不可复现（ADR-0015）")
     args = parser.parse_args()
     out = run_all(whatif_time_limit_sec=args.whatif_seconds)
 

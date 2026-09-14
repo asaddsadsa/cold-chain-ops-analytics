@@ -7,14 +7,14 @@
 | 算例 | 我方车辆/距离 | BKS车辆/距离 | 车辆gap | 距离gap | 门禁gap | 通过 |
 |---|---|---|---|---|---|---|
 | C101 | 10车/829.01 | 10车/827.30 | +0.00% | +0.21% | **+0.21%** | ✅ |
-| R101 | 19车/1653.54 | 20车/1637.70 | -5.00% | +0.97% | **-5.00%** | ✅ |
-| RC101 | 16车/1669.40 | 15车/1619.80 | +6.67% | +3.06% | **+6.67%** | ✅ |
+| R101 | 19车/1680.68 | 20车/1637.70 | -5.00% | +2.62% | **-5.00%** | ✅ |
+| RC101 | 16车/1682.15 | 15车/1619.80 | +6.67% | +3.85% | **+6.67%** | ✅ |
 
 ## 求解策略
 
-- C101：首解 PARALLEL_CHEAPEST_INSERTION，局部搜索 GUIDED_LOCAL_SEARCH，时限 30s
+- C101：首解 PARALLEL_CHEAPEST_INSERTION，局部搜索 GUIDED_LOCAL_SEARCH，时限 300s
   - gap 判定口径：车辆数与 BKS 相同 → 按距离 gap 判定
-- R101：首解 PARALLEL_CHEAPEST_INSERTION，局部搜索 GUIDED_LOCAL_SEARCH，时限 30s
+- R101：首解 PARALLEL_CHEAPEST_INSERTION，局部搜索 GUIDED_LOCAL_SEARCH，时限 300s
   - gap 判定口径：车辆数少于 BKS（19 < 20）→ 用车更优，gap 取保守值
-- RC101：首解 PARALLEL_CHEAPEST_INSERTION，局部搜索 GUIDED_LOCAL_SEARCH，时限 30s
+- RC101：首解 PARALLEL_CHEAPEST_INSERTION，局部搜索 GUIDED_LOCAL_SEARCH，时限 300s
   - gap 判定口径：车辆数多于 BKS（16 > 15）→ 取车辆 gap 与距离 gap 较大者

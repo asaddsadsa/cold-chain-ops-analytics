@@ -64,4 +64,5 @@
 
 - 路线 GeoJSON：`routes_baseline.geojson` / `routes_optimized.geojson`
 - 逐趟明细：`trips.csv`；对比表：`baseline_vs_optimized.csv`
+- 逐日基线 KPI：`daily_baseline_kpis.csv`（驾驶舱趋势线的数据源；只依赖确定性的基线贪心，可在不重跑代表日优化的前提下单独刷新：`python -m src.transport_optimize --daily-only`）
 

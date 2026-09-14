@@ -24,5 +24,15 @@
     },
     "note": "ADR-0001：不做绝对时长 KS（尺度不可比）；CV/偏度量级接近即形状对照通过。"
   },
+  "wave_window": {
+    "wave_interval_min": 50.0,
+    "expected_wave_wait_min": 25.0,
+    "layer_a_release_delay_param_min": 25.0,
+    "layer_a_observed_lag_min": {
+      "per_order_mean": 23.3,
+      "per_line_mean": 26.9
+    },
+    "note": "W 由「平均累积等待 W/2 = 数据层 A 的释放延迟参数均值」校准得出。层 A 的实测延迟与该参数同量级（差异来自层 A 的行内错峰与逐日抽样），仿真侧的波次等待也落在同一量级——三者对得上，W 才站得住。层 A 已验收且是校准锚点，不为仿真实验改动它；两层在「释放」上的实现差异（独立随机延迟 vs 窗界同步释放）记在 config 注释里。"
+  },
   "adr": "0001（不做跨尺度绝对时长 KS）"
 }

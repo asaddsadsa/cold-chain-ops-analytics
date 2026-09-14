@@ -234,6 +234,34 @@ def bar_with_ci(labels, means, lows, highs, *, label: str, unit: str = "",
     return fig
 
 
+def stacked_bars(labels, segments: dict[str, list[float]], *, unit: str = "",
+                 decimals: int = 0, height: int = 340) -> go.Figure:
+    """堆叠柱：把同一个总量的**组成部分**摞在一起，看成分，而不只看总量。
+
+    用在实验二的时长分解上——端到端时长 = 波次累积等待 + 等拣货员 + 拣货 + 复核。
+    摞起来才看得见「加人能压的只有其中一段」，而那一段恰好不是最大的一段；不拆开，
+    「加人到底改了什么」在图上没有答案，只看到一个几乎不动的总高。
+
+    `segments` 是**有序**的「成分名 → 各柱取值」，顺序即自下而上的堆叠次序，由调用方给定：
+    谁在下谁先被读到，这件事不该交给字典以外的任何东西决定。多序列，故放图例。
+    """
+    fig = go.Figure()
+    for i, (name, values) in enumerate(segments.items()):
+        fig.add_bar(
+            x=list(labels), y=list(values), name=name,
+            marker={"color": theme.series(i), "line": {"width": 0}},
+            hovertemplate="%{x}｜" + name + " %{y:." + str(decimals) + "f" + unit
+                          + "<extra></extra>",
+        )
+    fig.update_layout(
+        barmode="stack", height=height, bargap=0.35,
+        yaxis={"title": unit}, xaxis={"title": ""},
+        legend={"orientation": "h", "yanchor": "top", "y": -0.12, "x": 0},
+        margin={"l": 64, "r": 16, "t": 24, "b": 84},
+    )
+    return fig
+
+
 def tco_curve(mode_label: str, mileage, cost, *, slot: int,
               breakeven_km: float, ref_km: float, ref_cost: float) -> go.Figure:
     """单条 TCO 曲线：里程—日总成本，标出盈亏平衡里程与参考里程处的成本。

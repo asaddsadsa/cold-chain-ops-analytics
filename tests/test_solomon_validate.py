@@ -119,10 +119,33 @@ class TestSolveRealInstances:
         inst, bks_routes, bks_cost = SV.load_instance_and_bks("C101")
         assert inst.n_customers == 100
         assert bks_cost == pytest.approx(827.3)
-        sol = SV.solve_vrptw(inst, time_limit_sec=15)
+        # 不传时限：主停止条件是解数（`VRPTW_SOLUTION_LIMIT`，约 12 秒），墙钟只是安全网。
+        # 传时限会让这个测试重新变成「跑 N 秒」，而墙钟正是结果漂移的来源。
+        sol = SV.solve_vrptw(inst)
         assert sol["solved"] is True
         assert sol["vehicles"] >= 1
         assert sol["distance"] > 0
         # 门禁阈值 10%：C101 是经典算例，OR-Tools GLS 应能逼近
         g = SV.compute_gap(sol["vehicles"], sol["distance"], len(bks_routes), bks_cost)
         assert g["gate_gap"] <= 0.15, f"C101 gap 偏大: {g}"
+
+
+class TestSolveIsReproducible:
+    """同一输入的两次求解必须逐字段一致——停止条件不能是墙钟。
+
+    这是一条**回归测试**。原实现用「跑满 30 秒」当停止条件，而墙钟正是同一个输入在负载
+    不同的时刻会在不同迭代次数处停下的原因：本仓库实测代表日两次求解差 0.7%
+    （876.15 vs 870.16 km），而报告里的数字是写死的，于是「报告与产物一致」的测试会
+    随机变红。OR-Tools 的 routing 搜索本身**没有随机源**，唯一的不确定性就是墙钟；
+    换成基于解数的条件（`config.VRPTW_SOLUTION_LIMIT`）之后即可复现。
+    """
+
+    @pytest.mark.slow
+    def test_two_solves_agree_field_by_field(self):
+        inst, _, _ = SV.load_instance_and_bks("C101")
+        a = SV.solve_vrptw(inst, solution_limit=30)
+        b = SV.solve_vrptw(inst, solution_limit=30)
+        assert a["solved"] and b["solved"]
+        assert a["distance"] == b["distance"]
+        assert a["vehicles"] == b["vehicles"]
+        assert a["routes"] == b["routes"]

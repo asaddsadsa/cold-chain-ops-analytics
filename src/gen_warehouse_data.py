@@ -47,7 +47,7 @@ _QTY_RANGE = (1, 6)  # 单行数量 1–5 件
 _REPLENISH_FACTOR, _REPLENISH_SAFETY = 1.15, 6  # 补货系数与安全量
 _INITIAL_STOCK_DAYS = 12  # 期初库存 ≈ 12 天期望需求
 _STOCKTAKE_PER_DAY = 50  # 每日循环盘点 SKU 数
-_RELEASE_DELAY_MIN = (10, 40)  # 订单释放到开始拣货的延迟（分钟）
+_RELEASE_DELAY_MIN = C.WAREHOUSE_RELEASE_DELAY_MIN  # 订单释放到开始拣货的延迟（分钟），与数据层 F 同源
 _LINE_STAGGER_MIN = (2, 6)  # 同单内逐行错峰（分钟）
 
 logger = logging.getLogger(__name__)

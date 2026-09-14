@@ -52,9 +52,13 @@ python -m src.transport_decisions    # 模块二（下）：周度复盘 / TCO /
 ```
 
 > 顺序有依赖：`transport_decisions` 读 `transport_optimize` 的落盘产物作「优化前后」口径的
-> 唯一来源（ADR-0013），先跑前者会直接报错并提示运行顺序。what-if 预计算是 16 档 × 30 秒
-> 的离线一次性成本，换来改善建议页滑块零等待（ADR-0010）；只想快速验证可用
+> 唯一来源（ADR-0013），先跑前者会直接报错并提示运行顺序。what-if 预计算是 16 档的离线
+> 一次性成本（约 3 分钟），换来改善建议页滑块零等待（ADR-0010）；只想快速验证可用
 > `python -m src.transport_decisions --whatif-seconds 1` 压缩耗时。
+>
+> 求解的停止条件是**解数**（`config.VRPTW_SOLUTION_LIMIT`）而不是秒数，`--whatif-seconds`
+> 与 `VRPTW_TIME_LIMIT_SEC` 都是**墙钟安全网**：正常路径不会碰到它们。这样同一个输入每次
+> 求解结果一致；换成「跑满 N 秒」则会让结果随机器负载漂移（ADR-0015）。
 
 ### 5. 启看板
 

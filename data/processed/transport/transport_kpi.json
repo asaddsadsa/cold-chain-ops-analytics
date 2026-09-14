@@ -6,7 +6,7 @@
   "matrix_source": "amap",
   "baseline_rule": "最近邻贪心：从 DC 出发，每步选择「载重/容积仍装得下且能按时窗送达」的最近未访问点；无可行点时回 DC 收车并派下一辆。模拟『人工就近派车』的现有做法。",
   "solve": {
-    "time_limit_sec": 30.0,
+    "time_limit_sec": 300.0,
     "first_solution_strategy": "PARALLEL_CHEAPEST_INSERTION",
     "local_search": "GUIDED_LOCAL_SEARCH",
     "vehicles_available": 15,

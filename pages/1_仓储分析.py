@@ -310,43 +310,70 @@ _arms = sorted(whatif.keys(), key=lambda k: int(k))
 _pick = st.select_slider("拣货员人数（预计算档位，切换不重算仿真）",
                          options=_arms, value=_arms[len(_arms) // 2])
 _sel = whatif[_pick]
-_staff_tbl = pd.DataFrame([{
-    "拣货员人数": int(_a),
-    "平均履约时长(秒/单)": whatif[_a]["avg_fulfillment_sec"]["mean"],
-    "CI 下界": whatif[_a]["avg_fulfillment_sec"]["ci95_low"],
-    "CI 上界": whatif[_a]["avg_fulfillment_sec"]["ci95_high"],
-    "拣货员利用率": whatif[_a]["picker_utilization"]["mean"],
-    "日人力成本(元)": whatif[_a]["daily_labor_cost"],
-} for _a in _arms])
 
 exp2 = D.artifact("sim_exp2")
 _trade = exp2["tradeoff"]
+_wave_min = exp2["wave_interval_min"]
 _m0, _m1 = _trade["marginals"][0], _trade["marginals"][1]
 
+
+def _review_sec(s: dict) -> float:
+    """复核段 = 作业时长（释放→发货）− 等拣货员 − 拣货。"""
+    return s["avg_fulfillment_sec"]["mean"] - s["avg_queue_wait_sec"]["mean"] - s["avg_pick_sec"]["mean"]
+
+
+# 时长按环节拆开，而不只看总高：端到端里最大的一段是**波次累积等待**，它由作业组织
+# （波次窗口）决定、加多少人都不会动；人力能压的只有「等拣货员」那一段。不拆开，
+# 「加人到底改了什么」在图上没有答案。
+_staff_tbl = pd.DataFrame([{
+    "拣货员人数": int(_a),
+    "波次累积等待(秒)": whatif[_a]["avg_wave_wait_sec"]["mean"],
+    "等拣货员(秒)": whatif[_a]["avg_queue_wait_sec"]["mean"],
+    "拣货(秒)": whatif[_a]["avg_pick_sec"]["mean"],
+    "复核(秒)": _review_sec(whatif[_a]),
+    "端到端合计(秒)": whatif[_a]["avg_order_to_ship_sec"]["mean"],
+    "拣货员利用率": whatif[_a]["picker_utilization"]["mean"],
+    "日人力成本(元)": whatif[_a]["daily_labor_cost"],
+} for _a in _arms])
+_rev_lo, _rev_hi = _review_sec(whatif[_arms[0]]), _review_sec(whatif[_arms[-1]])
+
 UI.chart_block(
-    CH.bar_chart([f"{_a} 人" for _a in _arms],
-                 [whatif[_a]["avg_fulfillment_sec"]["mean"] for _a in _arms],
-                 label="平均订单履约时长", unit=" 秒/单",
-                 highlight={f"{_pick} 人": theme.series(1)}),
+    CH.stacked_bars(
+        [f"{_a} 人" for _a in _arms],
+        {
+            "波次累积等待": [whatif[_a]["avg_wave_wait_sec"]["mean"] for _a in _arms],
+            "等拣货员": [whatif[_a]["avg_queue_wait_sec"]["mean"] for _a in _arms],
+            "拣货": [whatif[_a]["avg_pick_sec"]["mean"] for _a in _arms],
+            "复核": [_review_sec(whatif[_a]) for _a in _arms],
+        },
+        unit=" 秒/单",
+    ),
     caption=(
-        f"当前选中 {_pick} 人档（以序列色高亮该柱，属强调而非取值编码）："
-        f"平均履约 {_sel['avg_fulfillment_sec']['mean']:.1f} 秒/单"
-        f"（95% CI {_sel['avg_fulfillment_sec']['ci95_low']:.1f}–{_sel['avg_fulfillment_sec']['ci95_high']:.1f}），"
+        f"时长按环节拆开堆叠（自下而上：波次累积等待 / 等拣货员 / 拣货 / 复核）。"
+        f"当前选中 {_pick} 人档：端到端 {_sel['avg_order_to_ship_sec']['mean']:.0f} 秒/单，"
+        f"其中作业段（释放→发货）{_sel['avg_fulfillment_sec']['mean']:.1f} 秒"
+        f"（95% CI {_sel['avg_fulfillment_sec']['ci95_low']:.1f}–"
+        f"{_sel['avg_fulfillment_sec']['ci95_high']:.1f}），"
         f"拣货员利用率 {_sel['picker_utilization']['mean']:.1%}，"
         f"日人力成本 {_sel['daily_labor_cost']:.0f} 元。"
-        # 拐点有没有，由产物说了算：本业务量下各档边际收益都小且不呈递减，产物返回 None
-        + (f"边际收益递减，拐点在 {_trade['knee_at_pickers']} 人："
+        # 拐点有没有，由产物说了算（见 `warehouse_sim.tradeoff_curve_and_knee`）：
+        # 只有各档均值差先过显著性检验、再逐档递减，才算有拐点。
+        + (f"**边际收益递减，拐点在 {_trade['knee_at_pickers']} 人**："
            if _trade.get("knee_at_pickers") else
-           "**各档边际收益都很小、且不呈递减——这个业务量下分不出拐点**：")
+           "**各档时长差异与 0 不可区分——这个负载与作业组织下分不出拐点**：")
         + f"{_m0['from_pickers']}→{_m0['to_pickers']} 人每投入 1 元省 "
           f"{_m0['sec_saved_per_yuan']:.4f} 秒，"
-        f"{_m1['from_pickers']}→{_m1['to_pickers']} 人 "
-        f"{_m1['sec_saved_per_yuan']:.4f} 秒。"
+          f"{_m1['from_pickers']}→{_m1['to_pickers']} 人 "
+          f"{_m1['sec_saved_per_yuan']:.4f} 秒。"
+        f"**最底下那段（波次累积等待约 {_sel['avg_wave_wait_sec']['mean']:.0f} 秒）加多少人都不动**"
+        f"——它由波次窗口（当前 {_wave_min:.0f} 分钟）决定，是比人力大一个量级的杠杆。"
+        f"复核段还从 {_rev_lo:.0f} 秒升到 {_rev_hi:.0f} 秒（{_arms[0]}→{_arms[-1]} 人）："
+        f"拣货侧加到 {_arms[-1]} 人后，瓶颈已经转到 {C.SIM_REVIEW_STATIONS} 个复核台。"
         "该图无日期/品类/片区维度，不受全局筛选影响。"
     ),
     table=_staff_tbl,
     table_label="人力档位数据表",
-    height=340,
+    height=380,
 )
 
 st.divider()

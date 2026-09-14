@@ -183,6 +183,27 @@ def pregenerate_orders(
 # ---------------------------------------------------------------------------
 # SimPy 仿真核心
 # ---------------------------------------------------------------------------
+_DAY_START_SEC = _DAY_START_HOUR * 3600
+
+
+def release_second(arrival_sec: float, wave_interval_min: float) -> float:
+    """订单从「到达」变成「可拣」的时刻——波次释放的边界。
+
+    波次窗自营业起点起算（08:00、08:00+W、08:00+2W …）。订单在窗内累积，到边界才批量
+    投入拣货队列。`wave_interval_min <= 0` 表示不累积（到达即抢拣货员）。
+
+    **为什么这是一个独立的环节**：「订单到达」与「拣货释放」是仓库里两件事。门店下单是
+    平稳的，而拣货按波次组织——中间隔着一次批量释放。仿真原先只有前者，订单一到就抢
+    拣货员，等于假设「拣货员永远有空接单」。这个假设在 300 单/天的欠载系统里看不出问题，
+    却让「加人有没有用」这个问题失去了机理：没有累积就没有排队，没有排队就没有边际收益。
+    """
+    if wave_interval_min <= 0:
+        return arrival_sec
+    w = wave_interval_min * 60.0
+    k = math.floor((arrival_sec - _DAY_START_SEC) / w) + 1
+    return _DAY_START_SEC + k * w
+
+
 def _order_process(
     env: simpy.Environment,
     arrival_sec: float,
@@ -192,14 +213,22 @@ def _order_process(
     layout: dict[str, float],
     rng: np.random.Generator,
     rec: dict,
+    wave_interval_min: float = 0.0,
 ) -> None:
-    """单订单作业流：等拣货员 → 逐行拣货 → 等复核台 → 复核打包 → 发货。"""
+    """单订单作业流：到达 →（累积到波次边界）→ 等拣货员 → 逐行拣货 → 等复核台 → 复核打包 → 发货。"""
     handle_mu = math.log(C.PICK_SECONDS_PER_LINE_MEAN) - C.WAREHOUSE_PICK_HANDLE_SIGMA**2 / 2
     yield env.timeout(arrival_sec - env.now)
     arrive = env.now
 
+    release = release_second(arrive, wave_interval_min)
+    if release > arrive:
+        yield env.timeout(release - arrive)
+    rec["wave_waits"].append(release - arrive)
+
     with pickers.request() as req:
         yield req
+        pick_start = env.now
+        rec["queue_waits"].append(pick_start - release)
         pick_start = env.now
         walk_total = 0.0
         for sku in line_skus:
@@ -227,8 +256,10 @@ def _order_process(
         yield env.timeout(rng.triangular(*C.PACK_TRIANGULAR))
     ship = env.now
 
-    rec["fulfillment_secs"].append(ship - arrive)
+    rec["fulfillment_secs"].append(ship - release)
+    rec["order_to_ship_secs"].append(ship - arrive)
     rec["arrivals"].append(arrive)
+    rec["releases"].append(release)
     rec["ships"].append(ship)
 
 
@@ -242,10 +273,14 @@ def run_one_sim(
     n_review: int | None = None,
     sku_ids: list[str] | None = None,
     sku_weights: np.ndarray | None = None,
+    wave_interval_min: float = 0.0,
 ) -> dict:
     """单次仿真（一个代表日）。返回指标 dict（含校准用的逐行拣货秒统计）。
 
     orders 为 None 时按 sku_ids/sku_weights 现抽（用于布局实验：固定到达流、只变距离）。
+
+    `wave_interval_min` 见 `release_second`：0 = 到达即抢拣货员（口径同数据层 A 的即时拣货），
+    >0 = 波次释放。三个时长指标随之为：到达→发货（端到端）、释放→发货（作业）、释放→开拣（排队）。
     """
     n_review = C.SIM_REVIEW_STATIONS if n_review is None else n_review
     rng = np.random.default_rng(seed)
@@ -260,28 +295,41 @@ def run_one_sim(
     review = simpy.Resource(env, capacity=n_review)
     rec: dict = {
         "line_pick_secs": [], "line_slow": [], "order_pick_secs": [],
-        "order_walk_m": [], "fulfillment_secs": [], "arrivals": [], "ships": [],
+        "order_walk_m": [], "fulfillment_secs": [], "order_to_ship_secs": [],
+        "arrivals": [], "releases": [], "ships": [],
+        "wave_waits": [], "queue_waits": [],
         "picker_busy": 0.0,
     }
     for arrival_sec, line_skus in orders:
         env.process(
-            _order_process(env, arrival_sec, line_skus, pickers, review, layout, rng, rec)
+            _order_process(env, arrival_sec, line_skus, pickers, review, layout, rng, rec,
+                           wave_interval_min)
         )
     env.run()
 
     ful = np.array(rec["fulfillment_secs"])
-    makespan = (max(rec["ships"]) - min(rec["arrivals"])) if rec["arrivals"] else 1.0
-    util = rec["picker_busy"] / (n_pickers * makespan) if makespan > 0 else 0.0
+    e2e = np.array(rec["order_to_ship_secs"])
+    wave_waits = np.array(rec["wave_waits"])
+    queue_waits = np.array(rec["queue_waits"])
+    # 利用率的作业窗口从「订单可拣」算起：波次累积的那段等待不是拣货员的可用工时，
+    # 计进分母会人为压低利用率（对比 4 人 vs 6 人时，压低幅度还随人数变化）。
+    span = (max(rec["ships"]) - min(rec["releases"])) if rec["releases"] else 1.0
+    util = rec["picker_busy"] / (n_pickers * span) if span > 0 else 0.0
     line_secs = np.array(rec["line_pick_secs"])
     slow_mask = np.array(rec["line_slow"], dtype=bool)
 
     return {
         "n_orders": len(orders),
         "n_pickers": n_pickers,
+        "wave_interval_min": wave_interval_min,
         "avg_order_pick_sec": float(np.mean(rec["order_pick_secs"])),
         "total_walk_m": float(np.sum(rec["order_walk_m"])),
         "avg_walk_m_per_order": float(np.mean(rec["order_walk_m"])),
         "avg_fulfillment_sec": float(np.mean(ful)),
+        "avg_order_to_ship_sec": float(np.mean(e2e)),
+        "avg_wave_wait_sec": float(np.mean(wave_waits)),
+        "avg_queue_wait_sec": float(np.mean(queue_waits)),
+        "avg_order_wait_sec": float(np.mean(e2e - ful)),
         "fulfillment_cv": float(np.std(ful) / np.mean(ful)) if np.mean(ful) > 0 else 0.0,
         "fulfillment_skew": float(stats.skew(ful)),
         "picker_utilization": float(util),
@@ -289,7 +337,7 @@ def run_one_sim(
         "line_pick_sec_cv": float(np.std(line_secs) / np.mean(line_secs)),
         "line_pick_sec_mean_other": float(np.mean(line_secs[~slow_mask])) if (~slow_mask).any() else float("nan"),
         "line_pick_sec_mean_slow": float(np.mean(line_secs[slow_mask])) if slow_mask.any() else float("nan"),
-        "makespan_sec": float(makespan),
+        "makespan_sec": float(span),
     }
 
 
@@ -316,6 +364,7 @@ def run_experiment_arm(
     arm_id: str, repeats: int = C.SIM_REPEATS,
     sku_ids: list[str] | None = None, sku_weights: np.ndarray | None = None,
     orders: list[tuple[float, list[str]]] | None = None,
+    wave_interval_min: float = 0.0,
 ) -> dict:
     """一个实验档位的 repeats 次重复 + 聚合。
 
@@ -331,69 +380,112 @@ def run_experiment_arm(
             arm_orders = pregenerate_orders(
                 run_rng, _N_ORDERS_PER_DAY, sku_ids, sku_weights, _PEAK_INTENSITY
             )
-        runs.append(run_one_sim(layout, n_pickers, seed, orders=arm_orders))
+        runs.append(run_one_sim(layout, n_pickers, seed, orders=arm_orders,
+                                wave_interval_min=wave_interval_min))
     metrics = ["avg_order_pick_sec", "total_walk_m", "avg_walk_m_per_order",
-               "avg_fulfillment_sec", "picker_utilization", "fulfillment_cv", "fulfillment_skew",
+               "avg_fulfillment_sec", "avg_order_to_ship_sec",
+               "avg_wave_wait_sec", "avg_queue_wait_sec",
+               "picker_utilization", "fulfillment_cv", "fulfillment_skew",
                "line_pick_sec_mean", "line_pick_sec_cv"]
     agg = {m: aggregate_repeats(runs, m) for m in metrics}
-    return {"arm_id": arm_id, "n_pickers": n_pickers, "repeats": repeats, "metrics": agg}
+    return {"arm_id": arm_id, "n_pickers": n_pickers, "repeats": repeats,
+            "wave_interval_min": wave_interval_min, "metrics": agg}
+
+
+def _arm_summary(arm: dict) -> dict:
+    """档位摘要：只留敏感性扫描与看板用得到的字段，避免把全量指标重复写五遍。"""
+    m = arm["metrics"]
+    return {
+        "n_pickers": arm["n_pickers"],
+        "fulfillment_sec": m["avg_fulfillment_sec"],
+        "order_to_ship_sec": m["avg_order_to_ship_sec"],
+        "wave_wait_sec": m["avg_wave_wait_sec"],
+        "queue_wait_sec": m["avg_queue_wait_sec"],
+        "picker_utilization": m["picker_utilization"],
+        "daily_labor_cost": arm["n_pickers"] * C.PICKER_DAILY_COST,
+    }
 
 
 # ---------------------------------------------------------------------------
 # 权衡曲线与拐点
 # ---------------------------------------------------------------------------
+def _means_differ(a: dict, b: dict) -> bool:
+    """两档的履约时长均值之差，在 5% 水平上是否显著（Welch t 检验，双侧）。
+
+    判拐点必须看显著性，不能只比点估计。到达即抢拣货员（波次窗口 0）时，4/5/6 三档的
+    均值差只有 0.1–1 秒，落在重复仿真的噪声里；而点估计仍可能「恰好」逐档递减，
+    于是报出一个并不存在的拐点——这正是这一版之前发生的事。
+    """
+    n_a, n_b = a.get("n", 0), b.get("n", 0)
+    if n_a < 2 or n_b < 2:
+        return False
+    va, vb = a["std"] ** 2 / n_a, b["std"] ** 2 / n_b
+    se = math.sqrt(va + vb)
+    if se == 0:
+        return a["mean"] != b["mean"]
+    df = (va + vb) ** 2 / (va ** 2 / (n_a - 1) + vb ** 2 / (n_b - 1))
+    return abs(a["mean"] - b["mean"]) / se > float(stats.t.ppf(0.975, df))
+
+
 def tradeoff_curve_and_knee(arms: list[dict]) -> dict:
     """实验二「时长—人力成本」权衡曲线与拐点。
 
-    人力成本 = 拣货员数 × PICKER_DAILY_COST。
+    人力成本 = 拣货员数 × PICKER_DAILY_COST。时长＝**释放 → 发货**（作业口径），
+    不含波次累积等待——那段等待由作业组织决定，加多少人都不变，混进来只会稀释人力的效应。
 
-    **拐点只有在「边际收益递减」真的成立时才报出来**：各档边际收益逐档下降、且首档为正，
-    取首档之后的那一档（即「过了这里，再加人买的就少了」）。否则 `knee_at_pickers` 为 `None`
-    并给出 `knee_note`，两种情形都如实区分：
+    **拐点只有在「边际收益显著递减」时才报出来**，判据分两层：
 
-      - 最大边际落在**最后一档** → 说明「再加人还在变好」，是测试区间没覆盖到拐点，不是拐点；
-      - 各档边际都在噪声量级 → 分不出拐点。
+      1. 每档的均值差先过 Welch t 检验（`_means_differ`）——两侧置信区间重叠的档位，
+         其「边际收益」不可与 0 区分，不能拿来排序；
+      2. 显著的那些档里，边际收益要逐档下降、且最大的一档不在**最后一档**。
 
-    这条规则是 2026-09-15 补的。原实现取 `sec_saved_per_yuan` 的**最大值**当拐点，与 docstring
-    写的「边际收益骤降处」是两回事：只要边际非单调，它就会翻到最后一档。数据层 A/F 的到达
-    强度统一到 1.8 之后，各档边际变成 [0.0005, 0.0065] 秒/元（都在噪声内），原实现便报出
-    「拐点 = 6 人」——而 6 人正是测试区间的上界，那不是拐点。
+    不满足时 `knee_at_pickers` 为 `None`，并在 `knee_note` 里说清是哪一种：
+    各档都在噪声内 / 最大边际落在最后一档（区间没覆盖到拐点）/ 显著档之间非单调。
+
+    这条规则是 2026-09-15 两次补的。原实现取 `sec_saved_per_yuan` 的**最大值**当拐点，
+    与 docstring 写的「边际收益骤降处」是两回事：边际一非单调就翻到最后一档。改成
+    「逐档递减」之后仍不够——波次窗口为 0 时三档均值差本就在噪声内，点估计却恰好递减，
+    于是又报出「拐点 = 5 人」。
     """
     pts = sorted(
-        [(a["n_pickers"], a["metrics"]["avg_fulfillment_sec"]["mean"],
+        [(a["n_pickers"], a["metrics"]["avg_fulfillment_sec"],
           a["n_pickers"] * C.PICKER_DAILY_COST) for a in arms],
         key=lambda x: x[0],
     )
-    curve = [{"n_pickers": p, "avg_fulfillment_sec": t, "daily_labor_cost": c} for p, t, c in pts]
+    curve = [{"n_pickers": p, "avg_fulfillment_sec": s["mean"], "daily_labor_cost": c}
+             for p, s, c in pts]
     # 边际：每增 1 人，履约时长降多少 / 成本增多少
     marginals = []
     for i in range(1, len(pts)):
-        dp = pts[i][0] - pts[i - 1][0]
-        dt = pts[i][1] - pts[i - 1][1]  # 负=改善
-        dc = pts[i][2] - pts[i - 1][2]
+        p0, s0, c0 = pts[i - 1]
+        p1, s1, c1 = pts[i]
+        dt, dc = s1["mean"] - s0["mean"], c1 - c0  # dt 负=改善
         marginals.append({
-            "from_pickers": pts[i - 1][0], "to_pickers": pts[i][0],
+            "from_pickers": p0, "to_pickers": p1,
             "delta_fulfillment_sec": round(dt, 2), "delta_cost": round(dc, 2),
             "sec_saved_per_yuan": round(-dt / dc, 4) if dc else None,
+            "significant": _means_differ(s0, s1),
         })
 
     vals = [m["sec_saved_per_yuan"] or 0.0 for m in marginals]
+    significant = [i for i, m in enumerate(marginals) if m["significant"]]
     if len(vals) < 2:
         knee, note = None, "档位不足两档，无法判断边际收益是否递减"
-    elif not all(b < a for a, b in zip(vals, vals[1:])):
-        top = max(range(len(vals)), key=lambda i: vals[i])
+    elif not significant:
         knee = None
-        note = (
-            f"各档边际收益不是逐档下降（{vals}），最大边际落在第 {top + 1} 段——"
-            "「再加人还在变好」说明测试区间没覆盖到拐点，而不是存在拐点"
-            if top == len(vals) - 1 else
-            f"各档边际收益非单调（{vals}），拐点不可判定"
-        )
-    elif vals[0] <= 0:
-        knee, note = None, f"首档边际收益已非正（{vals[0]} 秒/元），不存在性价比拐点"
+        note = (f"各档的时长差异都与 0 不可区分（95% CI 重叠；点估计 {vals} 秒/元），"
+                "这个负载与作业组织下分不出拐点")
     else:
-        knee = marginals[0]["to_pickers"]
-        note = f"边际收益逐档下降（{vals}），{knee} 人之后每元买到的改善显著变小"
+        best = max(significant, key=lambda i: vals[i])
+        if best == len(marginals) - 1:
+            knee = None
+            note = (f"最大边际落在最后一档（{vals}）——「再加人还在变好」，"
+                    "说明测试区间没覆盖到拐点，而不是存在拐点")
+        elif not all(vals[b] < vals[a] for a, b in zip(significant, significant[1:])):
+            knee, note = None, f"显著档之间的边际收益非单调（{vals}），拐点不可判定"
+        else:
+            knee = marginals[significant[0]]["to_pickers"]
+            note = f"边际收益逐档下降（{vals}），{knee} 人之后每元买到的改善显著变小"
 
     return {"curve": curve, "marginals": marginals,
             "knee_at_pickers": knee, "knee_note": note}
@@ -420,6 +512,37 @@ def calibrate_against_layer_a(sim_runs: list[dict], outbound_csv: Path) -> dict:
         "sim": {"pick_sec_per_line_mean": round(sim_mean, 2), "cv": round(sim_cv, 3)},
         "mean_ratio_sim_over_a": round(sim_mean / obs_mean, 3),
         "note": "锚定数据层 A；CV 接近即形状一致，无需调参；偏差大时记录调参过程。",
+    }
+
+
+def calibrate_wave_window(outbound_csv: Path, wave_interval_min: float) -> dict:
+    """波次窗口的**校准依据**：仿真里「订单到达 → 可拣」的平均等待 vs 数据层 A 实测的同段延迟。
+
+    这一步把 W 从「挑一个数」变成「校准出来的数」：窗内订单近似均匀到达，平均累积等待
+    = W/2，令它等于数据层 A 的释放延迟参数均值（`WAREHOUSE_RELEASE_DELAY_MIN` 的中值），
+    即得 W。落盘是为了让这个取值可被检验、可被推翻——读者能自己看到它对没对上。
+    """
+    ob = pd.read_csv(outbound_csv, encoding="utf-8-sig",
+                     parse_dates=["order_time", "pick_start"])
+    line_lag = (ob["pick_start"] - ob["order_time"]).dt.total_seconds()
+    first = ob.groupby("order_id").agg(order_time=("order_time", "min"),
+                                       pick_start=("pick_start", "min"))
+    per_order_lag = (first["pick_start"] - first["order_time"]).dt.total_seconds()
+    param_mean_min = sum(C.WAREHOUSE_RELEASE_DELAY_MIN) / 2
+    return {
+        "wave_interval_min": wave_interval_min,
+        "expected_wave_wait_min": round(wave_interval_min / 2, 1),
+        "layer_a_release_delay_param_min": param_mean_min,
+        "layer_a_observed_lag_min": {
+            "per_order_mean": round(float(per_order_lag.mean()) / 60, 1),
+            "per_line_mean": round(float(line_lag.mean()) / 60, 1),
+        },
+        "note": (
+            "W 由「平均累积等待 W/2 = 数据层 A 的释放延迟参数均值」校准得出。层 A 的实测"
+            "延迟与该参数同量级（差异来自层 A 的行内错峰与逐日抽样），仿真侧的波次等待也落在"
+            "同一量级——三者对得上，W 才站得住。层 A 已验收且是校准锚点，不为仿真实验改动它；"
+            "两层在「释放」上的实现差异（独立随机延迟 vs 窗界同步释放）记在 config 注释里。"
+        ),
     }
 
 
@@ -479,14 +602,29 @@ def run_all_experiments(
     exp1_orig = run_experiment_arm(layout_orig, n_pick, base_seed, "exp1_original", orders=fixed_orders)
     exp1_abc = run_experiment_arm(layout_abc, n_pick, base_seed, "exp1_abc_zoned", orders=fixed_orders)
 
-    logger.info("实验二（人力）：拣货员 %s 人，布局=abc_zoned，各 %d 次重复 ...",
-                C.SIM_PICKER_LEVELS, C.SIM_REPEATS)
-    exp2_arms = []
-    for np_pick in C.SIM_PICKER_LEVELS:
-        arm = run_experiment_arm(layout_abc, np_pick, base_seed, f"exp2_p{np_pick}",
-                                 sku_ids=sku_ids, sku_weights=sku_w)
-        exp2_arms.append(arm)
+    def _staffing_arms(wave: float, tag: str) -> list[dict]:
+        return [run_experiment_arm(layout_abc, n, base_seed, f"{tag}_p{n}",
+                                   sku_ids=sku_ids, sku_weights=sku_w,
+                                   wave_interval_min=wave)
+                for n in C.SIM_PICKER_LEVELS]
+
+    wave_main = C.WAREHOUSE_WAVE_INTERVAL_MIN
+    logger.info("实验二（人力）：拣货员 %s 人，布局=abc_zoned，波次 %.0f 分钟，各 %d 次重复 ...",
+                C.SIM_PICKER_LEVELS, wave_main, C.SIM_REPEATS)
+    exp2_arms = _staffing_arms(wave_main, "exp2")
     tradeoff = tradeoff_curve_and_knee(exp2_arms)
+
+    # 波次窗口敏感性：结论对「作业组织」有多敏感，是这个实验真正要回答的问题之一。
+    # 主档已在上面算过，不重复跑。
+    logger.info("实验二敏感性：波次窗口 %s 分钟 ...", list(C.SIM_WAVE_LEVELS))
+    wave_sensitivity = []
+    for wave in C.SIM_WAVE_LEVELS:
+        arms_w = exp2_arms if wave == wave_main else _staffing_arms(wave, f"wave{wave:g}")
+        wave_sensitivity.append({
+            "wave_interval_min": wave,
+            "arms": [_arm_summary(a) for a in arms_w],
+            "tradeoff": tradeoff_curve_and_knee(arms_w),
+        })
 
     # 校准：用【原始布局臂】对比数据层 A——该臂现在读的正是本层交付的那份库位分配，
     # 与生成 outbound 的布局逐 SKU 相同（不再是按 ABC 标签的近似），同布局同尺度才可比；
@@ -499,6 +637,7 @@ def run_all_experiments(
     }]
     calib_a = calibrate_against_layer_a(sim_runs_proxy, warehouse_dir / "outbound_orders.csv")
     calib_olist = calibrate_against_olist(sim_runs_proxy, olist_dir / "clean_orders.csv")
+    calib_wave = calibrate_wave_window(warehouse_dir / "outbound_orders.csv", wave_main)
 
     paths: dict[str, Path] = {}
     paths["exp1"] = out_dir / "exp1_layout.json"
@@ -512,14 +651,35 @@ def run_all_experiments(
                           / exp1_orig["metrics"]["avg_order_pick_sec"]["mean"]) * 100, 1),
                  }}, paths["exp1"])
     paths["exp2"] = out_dir / "exp2_staffing.json"
-    _write_json({"arms": exp2_arms, "tradeoff": tradeoff}, paths["exp2"])
+    _write_json({
+        "wave_interval_min": wave_main,
+        "arms": exp2_arms,
+        "tradeoff": tradeoff,
+        "wave_sensitivity": wave_sensitivity,
+        "limitations": [
+            "本模型只建模波次的**等待成本**，未建模它的**合并拣货收益**（一次波次内多单"
+            "合并成一条行走路径）。因此波次窗口的取值不可被读作「W 越小越好」——真实系统里"
+            "W 变大还有省行走的一侧，本模型没有它。",
+            "波次窗口 W 由数据层 A 的释放延迟校准（见 calibration.json 的 wave_window），"
+            "不是独立标定的参数；层 A 的释放机制本身是对「订单不是到达即拣」的近似。",
+            "日均 300 单对 4–6 拣货员仍是欠载系统（利用率 0.14–0.21）：加人的收益全部来自"
+            "波次释放造成的排队，而不是产能不足。真正的杠杆是波次窗口，不是人数。",
+        ],
+    }, paths["exp2"])
     paths["calibration"] = out_dir / "calibration.json"
     _write_json({"against_layer_a": calib_a, "against_olist_shape": calib_olist,
+                 "wave_window": calib_wave,
                  "adr": "0001（不做跨尺度绝对时长 KS）"}, paths["calibration"])
 
     # what-if 缓存：拣货员人数 → 指标（供看板滑块直接读，ADR-0010 同哲学）
+    # 带上时长分解，是因为「加人到底能改什么」只有拆开才看得见：端到端里最大的一段是
+    # 波次累积等待，它由作业组织决定、与人数无关；人力能压的只有「等拣货员」那一段。
     whatif = {str(a["n_pickers"]): {
         "avg_fulfillment_sec": a["metrics"]["avg_fulfillment_sec"],
+        "avg_order_to_ship_sec": a["metrics"]["avg_order_to_ship_sec"],
+        "avg_wave_wait_sec": a["metrics"]["avg_wave_wait_sec"],
+        "avg_queue_wait_sec": a["metrics"]["avg_queue_wait_sec"],
+        "avg_pick_sec": a["metrics"]["avg_order_pick_sec"],
         "picker_utilization": a["metrics"]["picker_utilization"],
         "daily_labor_cost": a["n_pickers"] * C.PICKER_DAILY_COST,
     } for a in exp2_arms}
@@ -527,11 +687,11 @@ def run_all_experiments(
     _write_json(whatif, paths["whatif_staffing"])
 
     logger.info(
-        "实验完成：布局重排降行走 %.1f%% / 降拣货时长 %.1f%%；人力拐点=%s 人；"
-        "仿真拣货 %.1f s/行 vs 数据层A %.1f s/行",
+        "实验完成：布局重排降行走 %.1f%% / 降拣货时长 %.1f%%；"
+        "人力拐点=%s 人（波次 %.0f 分钟）；仿真拣货 %.1f s/行 vs 数据层A %.1f s/行",
         (1 - exp1_abc["metrics"]["total_walk_m"]["mean"] / exp1_orig["metrics"]["total_walk_m"]["mean"]) * 100,
         (1 - exp1_abc["metrics"]["avg_order_pick_sec"]["mean"] / exp1_orig["metrics"]["avg_order_pick_sec"]["mean"]) * 100,
-        tradeoff["knee_at_pickers"],
+        tradeoff["knee_at_pickers"], wave_main,
         calib_a["sim"]["pick_sec_per_line_mean"], calib_a["layer_a"]["pick_sec_per_line_mean"],
     )
     return paths

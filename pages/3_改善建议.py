@@ -151,10 +151,11 @@ _fl, _r7 = pts["friday_late"], pts["r07_anomaly"]
 _wr = pts["weekly_replication"]
 _trade = exp2["tradeoff"]
 _knee = _trade["knee_at_pickers"]
+_wave_min = exp2["wave_interval_min"]
 _m0, _m1 = _trade["marginals"][0], _trade["marginals"][1]
-# 拐点有没有由产物说了算（见 `warehouse_sim.tradeoff_curve_and_knee`）：只有边际收益
-# 逐档下降且首档为正才算有拐点。数据层 A/F 的到达强度统一后，各档边际都在噪声内，
-# 产物返回 None 并给出原因——本页照它说，不把「区间上界」讲成拐点。
+# 拐点有没有由产物说了算（见 `warehouse_sim.tradeoff_curve_and_knee`）：各档均值差要先过
+# 显著性检验（两侧 CI 重叠的档位不能拿来排序），再要求逐档递减。这条判据是必须的——
+# 没有波次释放时三档差异本就落在噪声里，只看点估计会报出一个换个种子就消失的假拐点。
 _knee_text = f"拐点在 {_knee} 人" if _knee else "无有效拐点"
 _marg_text = (
     f"{_m0['from_pickers']}→{_m0['to_pickers']} 人每投入 1 元省 "
@@ -170,7 +171,7 @@ _diag_rows = [
         "证据文件": f"{_wh_path} → embedding_checks.pick_slowdown_14_16",
         "关键读数": f"14–16 点 {_slow.sec_per_line_14_16:.1f} 秒/行 vs 其余 "
                     f"{_slow.sec_per_line_other:.1f} 秒/行（{_slow.ratio:.2f}×）",
-        "改善动作": "到货波次错峰；人力不加档——本业务量下 4 人已够用",
+        "改善动作": "拣货波次窗口复核：端到端等待的大头在波次累积，不在人数",
         "预期收益": f"{_knee_text}；{_marg_text}",
         "收益证据文件": _exp2_path,
     },
@@ -225,15 +226,17 @@ _diag_rows = [
                         f"（延迟率 {ol['real_delay_rate']:.2%}）",
     },
     {
-        "问题诊断": "人力档位在 4–6 人之间分不出有效拐点（如实记录，不硬造一个）",
+        "问题诊断": "人力档位的拐点存在，但它不是端到端时长的**主杠杆**",
         "数据类别": "过程仿真",
         "证据文件": f"{_exp2_path} → tradeoff",
-        "关键读数": f"{_knee_text}；4/5/6 人履约 "
+        "关键读数": f"{_knee_text}；4/5/6 人作业段（释放→发货）"
                     f"{_trade['curve'][0]['avg_fulfillment_sec']:.1f} / "
                     f"{_trade['curve'][1]['avg_fulfillment_sec']:.1f} / "
-                    f"{_trade['curve'][2]['avg_fulfillment_sec']:.1f} 秒/单，"
-                    "三档 95% CI 大幅重叠",
-        "改善动作": "维持 4 人档；预算投到时段性拥堵（错峰）而非加人",
+                    f"{_trade['curve'][2]['avg_fulfillment_sec']:.1f} 秒/单；"
+                    f"端到端（到达→发货）的大头是波次累积等待，与人数无关",
+        "改善动作": (f"维持 {_knee} 人档；工时投到波次窗口复核（当前 {_wave_min:.0f} 分钟）"
+                     if _knee else
+                     "维持 4 人档；预算投到时段性拥堵（错峰）而非加人"),
         "预期收益": f"{_marg_text}"
                     f"——{_m1['from_pickers']}→{_m1['to_pickers']} 人每日多花 "
                     f"{_m1['delta_cost']:.0f} 元仅省 "

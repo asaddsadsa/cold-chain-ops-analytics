@@ -197,25 +197,25 @@
         "solve_time_limit_sec": null
       },
       "n_vehicles_used": 9,
-      "total_distance_km": 945.73,
+      "total_distance_km": 862.52,
       "time_window_rate": 0.7954545454545454,
       "n_orders_ontime": 105,
       "n_orders_served": 132,
       "n_orders_unserved": 0,
       "load_rate_mean": 0.8559420634920636,
       "load_rate_max": 0.9724785714285714,
-      "mileage_utilization": 0.722,
+      "mileage_utilization": 0.6951,
       "cost": {
         "diesel": {
-          "total": 4226.76,
-          "per_order": 32.02
+          "total": 4134.4,
+          "per_order": 31.32
         },
         "ev": {
-          "total": 3872.12,
-          "per_order": 29.33
+          "total": 3835.51,
+          "per_order": 29.06
         }
       },
-      "solve_time_limit_sec": 30.0
+      "solve_time_limit_sec": 300.0
     },
     "10": {
       "n_vehicles_available": 10,
@@ -244,25 +244,25 @@
         "solve_time_limit_sec": null
       },
       "n_vehicles_used": 10,
-      "total_distance_km": 870.16,
+      "total_distance_km": 1005.93,
       "time_window_rate": 0.7954545454545454,
       "n_orders_ontime": 105,
       "n_orders_served": 132,
       "n_orders_unserved": 0,
       "load_rate_mean": 0.770347857142857,
-      "load_rate_max": 0.9724785714285714,
-      "mileage_utilization": 0.6901,
+      "load_rate_max": 0.9847214285714286,
+      "mileage_utilization": 0.7309,
       "cost": {
         "diesel": {
-          "total": 4495.87,
-          "per_order": 34.06
+          "total": 4646.59,
+          "per_order": 35.2
         },
         "ev": {
-          "total": 4222.87,
-          "per_order": 31.99
+          "total": 4282.61,
+          "per_order": 32.44
         }
       },
-      "solve_time_limit_sec": 30.0
+      "solve_time_limit_sec": 300.0
     },
     "11": {
       "n_vehicles_available": 11,
@@ -309,7 +309,7 @@
           "per_order": 32.0
         }
       },
-      "solve_time_limit_sec": 30.0
+      "solve_time_limit_sec": 300.0
     },
     "12": {
       "n_vehicles_available": 12,
@@ -356,7 +356,7 @@
           "per_order": 32.01
         }
       },
-      "solve_time_limit_sec": 30.0
+      "solve_time_limit_sec": 300.0
     },
     "13": {
       "n_vehicles_available": 13,
@@ -403,7 +403,7 @@
           "per_order": 32.01
         }
       },
-      "solve_time_limit_sec": 30.0
+      "solve_time_limit_sec": 300.0
     },
     "14": {
       "n_vehicles_available": 14,
@@ -450,7 +450,7 @@
           "per_order": 32.01
         }
       },
-      "solve_time_limit_sec": 30.0
+      "solve_time_limit_sec": 300.0
     },
     "15": {
       "n_vehicles_available": 15,
@@ -497,7 +497,7 @@
           "per_order": 32.01
         }
       },
-      "solve_time_limit_sec": 30.0
+      "solve_time_limit_sec": 300.0
     },
     "16": {
       "n_vehicles_available": 16,
@@ -544,7 +544,7 @@
           "per_order": 32.01
         }
       },
-      "solve_time_limit_sec": 30.0
+      "solve_time_limit_sec": 300.0
     },
     "17": {
       "n_vehicles_available": 17,
@@ -591,7 +591,7 @@
           "per_order": 32.01
         }
       },
-      "solve_time_limit_sec": 30.0
+      "solve_time_limit_sec": 300.0
     },
     "18": {
       "n_vehicles_available": 18,
@@ -638,7 +638,7 @@
           "per_order": 32.01
         }
       },
-      "solve_time_limit_sec": 30.0
+      "solve_time_limit_sec": 300.0
     },
     "19": {
       "n_vehicles_available": 19,
@@ -685,7 +685,7 @@
           "per_order": 32.01
         }
       },
-      "solve_time_limit_sec": 30.0
+      "solve_time_limit_sec": 300.0
     },
     "20": {
       "n_vehicles_available": 20,
@@ -732,10 +732,10 @@
           "per_order": 32.01
         }
       },
-      "solve_time_limit_sec": 30.0
+      "solve_time_limit_sec": 300.0
     }
   },
-  "time_limit_sec": 30.0,
+  "time_limit_sec": 300.0,
   "n_nodes": 45,
   "n_orders": 132,
   "rated_payload_kg": 1400.0,

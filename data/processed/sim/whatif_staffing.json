@@ -1,33 +1,89 @@
 {
   "4": {
     "avg_fulfillment_sec": {
-      "mean": 170.875,
-      "ci95_low": 169.274,
-      "ci95_high": 172.476,
+      "mean": 487.099,
+      "ci95_low": 477.944,
+      "ci95_high": 496.254,
       "n": 30,
-      "std": 4.288
+      "std": 24.518
+    },
+    "avg_order_to_ship_sec": {
+      "mean": 1989.396,
+      "ci95_low": 1968.909,
+      "ci95_high": 2009.883,
+      "n": 30,
+      "std": 54.865
+    },
+    "avg_wave_wait_sec": {
+      "mean": 1502.297,
+      "ci95_low": 1483.026,
+      "ci95_high": 1521.568,
+      "n": 30,
+      "std": 51.609
+    },
+    "avg_queue_wait_sec": {
+      "mean": 283.221,
+      "ci95_low": 274.683,
+      "ci95_high": 291.76,
+      "n": 30,
+      "std": 22.867
+    },
+    "avg_pick_sec": {
+      "mean": 95.439,
+      "ci95_low": 94.191,
+      "ci95_high": 96.688,
+      "n": 30,
+      "std": 3.343
     },
     "picker_utilization": {
-      "mean": 0.208,
-      "ci95_low": 0.205,
-      "ci95_high": 0.211,
+      "mean": 0.214,
+      "ci95_low": 0.211,
+      "ci95_high": 0.216,
       "n": 30,
-      "std": 0.008
+      "std": 0.007
     },
     "daily_labor_cost": 920.0
   },
   "5": {
     "avg_fulfillment_sec": {
-      "mean": 170.765,
-      "ci95_low": 168.832,
-      "ci95_high": 172.698,
+      "mean": 450.976,
+      "ci95_low": 445.319,
+      "ci95_high": 456.633,
       "n": 30,
-      "std": 5.176
+      "std": 15.15
+    },
+    "avg_order_to_ship_sec": {
+      "mean": 1955.765,
+      "ci95_low": 1937.642,
+      "ci95_high": 1973.889,
+      "n": 30,
+      "std": 48.535
+    },
+    "avg_wave_wait_sec": {
+      "mean": 1504.789,
+      "ci95_low": 1485.715,
+      "ci95_high": 1523.863,
+      "n": 30,
+      "std": 51.082
+    },
+    "avg_queue_wait_sec": {
+      "mean": 217.584,
+      "ci95_low": 211.815,
+      "ci95_high": 223.352,
+      "n": 30,
+      "std": 15.447
+    },
+    "avg_pick_sec": {
+      "mean": 95.782,
+      "ci95_low": 94.357,
+      "ci95_high": 97.207,
+      "n": 30,
+      "std": 3.816
     },
     "picker_utilization": {
-      "mean": 0.167,
-      "ci95_low": 0.165,
-      "ci95_high": 0.17,
+      "mean": 0.171,
+      "ci95_low": 0.169,
+      "ci95_high": 0.174,
       "n": 30,
       "std": 0.007
     },
@@ -35,18 +91,46 @@
   },
   "6": {
     "avg_fulfillment_sec": {
-      "mean": 169.277,
-      "ci95_low": 168.03,
-      "ci95_high": 170.525,
+      "mean": 422.565,
+      "ci95_low": 417.417,
+      "ci95_high": 427.712,
       "n": 30,
-      "std": 3.34
+      "std": 13.786
+    },
+    "avg_order_to_ship_sec": {
+      "mean": 1937.237,
+      "ci95_low": 1919.42,
+      "ci95_high": 1955.055,
+      "n": 30,
+      "std": 47.716
+    },
+    "avg_wave_wait_sec": {
+      "mean": 1514.673,
+      "ci95_low": 1497.74,
+      "ci95_high": 1531.606,
+      "n": 30,
+      "std": 45.348
+    },
+    "avg_queue_wait_sec": {
+      "mean": 165.763,
+      "ci95_low": 161.147,
+      "ci95_high": 170.38,
+      "n": 30,
+      "std": 12.363
+    },
+    "avg_pick_sec": {
+      "mean": 94.841,
+      "ci95_low": 93.701,
+      "ci95_high": 95.981,
+      "n": 30,
+      "std": 3.053
     },
     "picker_utilization": {
-      "mean": 0.138,
-      "ci95_low": 0.136,
-      "ci95_high": 0.139,
+      "mean": 0.141,
+      "ci95_low": 0.14,
+      "ci95_high": 0.143,
       "n": 30,
-      "std": 0.004
+      "std": 0.005
     },
     "daily_labor_cost": 1380.0
   }

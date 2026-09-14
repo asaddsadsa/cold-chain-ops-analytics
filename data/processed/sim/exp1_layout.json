@@ -3,6 +3,7 @@
     "arm_id": "exp1_original",
     "n_pickers": 5,
     "repeats": 30,
+    "wave_interval_min": 0.0,
     "metrics": {
       "avg_order_pick_sec": {
         "mean": 165.674,
@@ -31,6 +32,27 @@
         "ci95_high": 241.704,
         "n": 30,
         "std": 1.254
+      },
+      "avg_order_to_ship_sec": {
+        "mean": 241.236,
+        "ci95_low": 240.768,
+        "ci95_high": 241.704,
+        "n": 30,
+        "std": 1.254
+      },
+      "avg_wave_wait_sec": {
+        "mean": 0.0,
+        "ci95_low": 0.0,
+        "ci95_high": 0.0,
+        "n": 30,
+        "std": 0.0
+      },
+      "avg_queue_wait_sec": {
+        "mean": 4.725,
+        "ci95_low": 4.593,
+        "ci95_high": 4.857,
+        "n": 30,
+        "std": 0.353
       },
       "picker_utilization": {
         "mean": 0.277,
@@ -73,6 +95,7 @@
     "arm_id": "exp1_abc_zoned",
     "n_pickers": 5,
     "repeats": 30,
+    "wave_interval_min": 0.0,
     "metrics": {
       "avg_order_pick_sec": {
         "mean": 100.119,
@@ -101,6 +124,27 @@
         "ci95_high": 171.211,
         "n": 30,
         "std": 0.973
+      },
+      "avg_order_to_ship_sec": {
+        "mean": 170.848,
+        "ci95_low": 170.485,
+        "ci95_high": 171.211,
+        "n": 30,
+        "std": 0.973
+      },
+      "avg_wave_wait_sec": {
+        "mean": 0.0,
+        "ci95_low": 0.0,
+        "ci95_high": 0.0,
+        "n": 30,
+        "std": 0.0
+      },
+      "avg_queue_wait_sec": {
+        "mean": 0.299,
+        "ci95_low": 0.274,
+        "ci95_high": 0.325,
+        "n": 30,
+        "std": 0.068
       },
       "picker_utilization": {
         "mean": 0.167,

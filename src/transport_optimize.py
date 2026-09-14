@@ -253,6 +253,7 @@ def solve_vrptw(
     depot_open_min: float,
     max_route_min: float,
     time_limit_sec: float | None = None,
+    solution_limit: int | None = None,
 ) -> list[dict] | None:
     """OR-Tools VRPTW：载重 + 容积 + 时间窗 + 单 DC 往返，目标 = 固定成本 + 里程成本。
 
@@ -323,6 +324,10 @@ def solve_vrptw(
 
     params = pywrapcp.DefaultRoutingSearchParameters()
     params.local_search_metaheuristic = routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
+    # 主停止条件是**解数**不是墙钟：routing 搜索没有随机源，墙钟是唯一让结果随机器负载
+    # 漂移的东西（见 config.VRPTW_SOLUTION_LIMIT 的说明）。时限退居安全网。
+    params.solution_limit = (C.VRPTW_SOLUTION_LIMIT if solution_limit is None
+                             else int(solution_limit))
     params.time_limit.FromSeconds(int(time_limit_sec))
     params.first_solution_strategy = routing_enums_pb2.FirstSolutionStrategy.PARALLEL_CHEAPEST_INSERTION
 
