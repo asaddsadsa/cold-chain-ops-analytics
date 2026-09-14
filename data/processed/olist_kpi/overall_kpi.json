@@ -1,0 +1,8 @@
+{
+  "n_orders": 96282,
+  "real_ontime_rate": 0.9187,
+  "real_delay_rate": 0.0813,
+  "avg_fulfillment_days": 12.57,
+  "avg_outbound_response_days": 2.8,
+  "avg_transit_days": 9.33
+}

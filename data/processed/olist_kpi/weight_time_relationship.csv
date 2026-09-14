@@ -1,0 +1,6 @@
+weight_segment,n_orders,avg_fulfillment_days,avg_transit_days
+≤0.5kg,38754,11.97,8.97
+0.5–1kg,16857,12.38,9.33
+1–3kg,22570,12.74,9.59
+3–10kg,12817,13.36,9.84
+>10kg,5262,14.89,9.74

@@ -1,0 +1,58 @@
+{
+  "tables": {
+    "sku_master": 500,
+    "location_master": 800,
+    "inbound_receipts": 9793,
+    "outbound_orders": 44121,
+    "inventory_stocktake": 4500
+  },
+  "date_range": {
+    "start": "2026-06-01",
+    "end": "2026-08-29",
+    "days": 90
+  },
+  "daily_orders": {
+    "min": 202,
+    "max": 400,
+    "mean": 298.5,
+    "in_range_200_400": true
+  },
+  "embedding_checks": {
+    "abc_distance": {
+      "mean_dist_A_m": 92.1,
+      "mean_dist_C_m": 34.3,
+      "ratio_A_over_C": 2.69,
+      "n_A": 141,
+      "n_C": 161
+    },
+    "p03_discrepancy": {
+      "p03_rate": 0.1745,
+      "other_rate": 0.0402,
+      "ratio": 4.34,
+      "n_p03_counts": 424,
+      "n_other_counts": 4076
+    },
+    "pick_slowdown_14_16": {
+      "sec_per_line_14_16": 168.4,
+      "sec_per_line_other": 88.6,
+      "ratio": 1.9,
+      "n_slow_lines": 11040
+    },
+    "late_arrival": {
+      "late_rate": 0.1851,
+      "ontime_rate": 0.8149,
+      "n_inbound": 9793
+    }
+  },
+  "integrity": {
+    "fk_violations": 0,
+    "time_order_violations": 0,
+    "min_stock": 3,
+    "stockout_transitions": 0
+  },
+  "assumptions": [
+    "盘点差异只记录、不回写库存台账（账面数保持 期初+入库−出库 的推算值）",
+    "每 SKU 固定主库位（一 SKU 一库位），入库/出库/盘点同库位",
+    "拣货 14–16 点低谷作用于整段时长（行走+操作），系数 1.75–2.05"
+  ]
+}

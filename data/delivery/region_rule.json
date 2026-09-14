@@ -1,0 +1,143 @@
+{
+  "rule_version": "1.0",
+  "data_category": "情景假设",
+  "method": {
+    "unit": "行政区（空间连续单元）",
+    "label_rule": "质心经度升序编号（同经度按纬度）",
+    "clustering_algorithm": "按行政区聚合（等价于带连续性约束的空间聚簇）",
+    "rejected_alternative": "无约束空间聚簇（k-means++ / Ward，k=8）：实测产生过小的碎簇并跨越行政区，片区规模撑不起片区级异常率统计，弃用。实测簇规模见同目录 unconstrained_clustering_diagnosis"
+  },
+  "unconstrained_clustering_diagnosis": {
+    "k": 8,
+    "cluster_sizes": {
+      "kmeans_pp": [
+        1,
+        2,
+        4,
+        4,
+        5,
+        7,
+        12,
+        14
+      ],
+      "ward": [
+        2,
+        3,
+        4,
+        5,
+        5,
+        5,
+        11,
+        14
+      ]
+    },
+    "min_size_floor": 3,
+    "n_below_min_size": {
+      "kmeans_pp": 2,
+      "ward": 1
+    }
+  },
+  "n_regions": 8,
+  "n_poi": 49,
+  "regions": {
+    "R01": {
+      "district": "郫都区",
+      "n_poi": 5,
+      "centroid_lng": 103.943273,
+      "centroid_lat": 30.761358
+    },
+    "R02": {
+      "district": "青羊区",
+      "n_poi": 5,
+      "centroid_lng": 104.020897,
+      "centroid_lat": 30.671333
+    },
+    "R03": {
+      "district": "武侯区",
+      "n_poi": 5,
+      "centroid_lng": 104.033177,
+      "centroid_lat": 30.600706
+    },
+    "R04": {
+      "district": "金牛区",
+      "n_poi": 5,
+      "centroid_lng": 104.064521,
+      "centroid_lat": 30.680247
+    },
+    "R05": {
+      "district": "锦江区",
+      "n_poi": 5,
+      "centroid_lng": 104.097294,
+      "centroid_lat": 30.641271
+    },
+    "R06": {
+      "district": "成华区",
+      "n_poi": 5,
+      "centroid_lng": 104.125773,
+      "centroid_lat": 30.631255
+    },
+    "R07": {
+      "district": "青白江区",
+      "n_poi": 14,
+      "centroid_lng": 104.264057,
+      "centroid_lat": 30.878691
+    },
+    "R08": {
+      "district": "龙泉驿区",
+      "n_poi": 5,
+      "centroid_lng": 104.266483,
+      "centroid_lat": 30.565156
+    }
+  },
+  "poi_to_region": {
+    "P001": "R06",
+    "P002": "R06",
+    "P003": "R06",
+    "P004": "R06",
+    "P005": "R06",
+    "P006": "R03",
+    "P007": "R03",
+    "P008": "R03",
+    "P009": "R03",
+    "P010": "R03",
+    "P011": "R01",
+    "P012": "R01",
+    "P013": "R01",
+    "P014": "R01",
+    "P015": "R01",
+    "P016": "R04",
+    "P017": "R04",
+    "P018": "R04",
+    "P019": "R04",
+    "P020": "R04",
+    "P021": "R05",
+    "P022": "R05",
+    "P023": "R05",
+    "P024": "R05",
+    "P025": "R05",
+    "P026": "R07",
+    "P027": "R07",
+    "P028": "R07",
+    "P029": "R07",
+    "P030": "R07",
+    "P031": "R07",
+    "P032": "R07",
+    "P033": "R07",
+    "P034": "R07",
+    "P035": "R07",
+    "P036": "R07",
+    "P037": "R07",
+    "P038": "R07",
+    "P039": "R07",
+    "P040": "R02",
+    "P041": "R02",
+    "P042": "R02",
+    "P043": "R02",
+    "P044": "R02",
+    "P045": "R08",
+    "P046": "R08",
+    "P047": "R08",
+    "P048": "R08",
+    "P049": "R08"
+  }
+}

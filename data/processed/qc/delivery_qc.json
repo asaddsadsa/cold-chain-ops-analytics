@@ -1,0 +1,259 @@
+{
+  "tables": {
+    "delivery_orders": 9299,
+    "shipment_anomalies": 9299,
+    "shipment_tracking": 89029,
+    "vehicles": 15,
+    "vehicle_days": 1333
+  },
+  "date_range": {
+    "start": "2026-06-01",
+    "end": "2026-08-29",
+    "days": 90
+  },
+  "order_stats": {
+    "per_day_mean": 103.3,
+    "per_store_day_mean": 2.453,
+    "weight_kg": {
+      "median": 41.27,
+      "mean": 100.48,
+      "p95": 355.16,
+      "total_t_per_day": 10.38
+    },
+    "volume_m3": {
+      "median": 0.2951,
+      "mean": 0.6713
+    },
+    "shape_source": {
+      "weight_sigma": 1.3282,
+      "volume_sigma": 1.2797,
+      "source": "data\\processed\\olist\\weight_volume_distribution.json"
+    },
+    "window": {
+      "wave_start_range_min": [
+        510,
+        900
+      ],
+      "jitter_max_min": 10,
+      "n_multi_order_store_days": 2638,
+      "n_with_common_intersection": 2638,
+      "common_intersection_rate": 1.0,
+      "note": "同店当日各单的窗锚在同一收货波次上，故公共交集普遍存在——这是 ADR-0004「单点一访 + 逐单判定时间窗达成率」能同时成立的前提"
+    }
+  },
+  "regions": {
+    "n_regions": 8,
+    "method": "行政区（空间连续单元）",
+    "label_rule": "质心经度升序编号（同经度按纬度）",
+    "poi_per_region": {
+      "R01": 5,
+      "R02": 5,
+      "R03": 5,
+      "R04": 5,
+      "R05": 5,
+      "R06": 5,
+      "R07": 14,
+      "R08": 5
+    },
+    "order_share": {
+      "R07": 0.2799,
+      "R01": 0.127,
+      "R08": 0.1127,
+      "R02": 0.1087,
+      "R03": 0.1014,
+      "R04": 0.0989,
+      "R06": 0.0902,
+      "R05": 0.0811
+    }
+  },
+  "embedding_checks": {
+    "region_anomaly_rate": {
+      "high_region": "R07",
+      "high_region_rate": 0.1514,
+      "other_regions_rate": 0.0528,
+      "ratio": 2.87,
+      "z": 15.68,
+      "significant_at_5pct": true,
+      "n_high_region": 2603,
+      "per_region": {
+        "R01": 0.055,
+        "R02": 0.0445,
+        "R03": 0.0594,
+        "R04": 0.0522,
+        "R05": 0.0531,
+        "R06": 0.0513,
+        "R07": 0.1514,
+        "R08": 0.0544
+      },
+      "model_predicted_rate": {
+        "R01": 0.054,
+        "R02": 0.054,
+        "R03": 0.054,
+        "R04": 0.0542,
+        "R05": 0.054,
+        "R06": 0.054,
+        "R07": 0.1515,
+        "R08": 0.0539
+      },
+      "model_deviation_z": {
+        "R01": 0.15,
+        "R02": -1.34,
+        "R03": 0.73,
+        "R04": -0.27,
+        "R05": -0.11,
+        "R06": -0.35,
+        "R07": -0.02,
+        "R08": 0.08
+      },
+      "max_abs_deviation_z": 1.34
+    },
+    "friday_late_rate": {
+      "friday": 0.0751,
+      "other_weekdays": 0.0337,
+      "ratio": 2.23,
+      "z": 7.2,
+      "significant_at_5pct": true,
+      "n_friday": 1344
+    },
+    "rainy_late_rate": {
+      "rainy": 0.0534,
+      "dry": 0.03,
+      "ratio": 1.78,
+      "z": 5.69,
+      "significant_at_5pct": true,
+      "n_rainy": 3861,
+      "rainy_day_share": 0.4111
+    },
+    "vehicle_low_load": {
+      "threshold": 0.35,
+      "n_low_load": 3,
+      "low_load_mean_rate": 0.2474,
+      "other_mean_rate": 0.5602,
+      "fleet_mean_rate": 0.4976,
+      "per_vehicle": [
+        {
+          "vehicle_id": "V01",
+          "mean_load_rate": 0.7363,
+          "is_low_load": false
+        },
+        {
+          "vehicle_id": "V02",
+          "mean_load_rate": 0.5843,
+          "is_low_load": false
+        },
+        {
+          "vehicle_id": "V03",
+          "mean_load_rate": 0.7759,
+          "is_low_load": false
+        },
+        {
+          "vehicle_id": "V04",
+          "mean_load_rate": 0.6001,
+          "is_low_load": false
+        },
+        {
+          "vehicle_id": "V05",
+          "mean_load_rate": 0.544,
+          "is_low_load": false
+        },
+        {
+          "vehicle_id": "V06",
+          "mean_load_rate": 0.4832,
+          "is_low_load": false
+        },
+        {
+          "vehicle_id": "V07",
+          "mean_load_rate": 0.5695,
+          "is_low_load": false
+        },
+        {
+          "vehicle_id": "V08",
+          "mean_load_rate": 0.4634,
+          "is_low_load": false
+        },
+        {
+          "vehicle_id": "V09",
+          "mean_load_rate": 0.4628,
+          "is_low_load": false
+        },
+        {
+          "vehicle_id": "V10",
+          "mean_load_rate": 0.393,
+          "is_low_load": false
+        },
+        {
+          "vehicle_id": "V11",
+          "mean_load_rate": 0.4197,
+          "is_low_load": false
+        },
+        {
+          "vehicle_id": "V12",
+          "mean_load_rate": 0.295,
+          "is_low_load": true
+        },
+        {
+          "vehicle_id": "V13",
+          "mean_load_rate": 0.2057,
+          "is_low_load": true
+        },
+        {
+          "vehicle_id": "V14",
+          "mean_load_rate": 0.2414,
+          "is_low_load": true
+        },
+        {
+          "vehicle_id": "V15",
+          "mean_load_rate": 0.6899,
+          "is_low_load": false
+        }
+      ]
+    },
+    "cold_chain": {
+      "range_c": [
+        2.0,
+        8.0
+      ],
+      "compliance_rate": 0.9365,
+      "n_samples": 89029,
+      "n_out_of_range": 5650,
+      "per_shipment_mean": 0.9264
+    }
+  },
+  "anomaly": {
+    "overall_rate": 0.0804,
+    "olist_baseline_rate": 0.0813,
+    "baseline_source": "data\\processed\\olist\\olist_delay_rate.json",
+    "by_type": {
+      "无异常": 0.9196,
+      "晚点": 0.0397,
+      "拥堵": 0.0225,
+      "温控波动": 0.0133,
+      "故障": 0.0049
+    },
+    "mean_handling_min_by_type": {
+      "拥堵": 8.7,
+      "故障": 111.1,
+      "晚点": 17.8,
+      "温控波动": 35.1
+    },
+    "on_time_rate": 0.9651
+  },
+  "integrity": {
+    "fk_violations": 0,
+    "time_order_violations": 0,
+    "ontime_flag_violations": 0,
+    "tracking_coverage_violations": 0,
+    "coord_range_violations": 0
+  },
+  "assumptions": [
+    "整张配送订单表归类「情景假设」：POI 坐标为真实观测，需求量为泊松生成，重量/体积的分布**形状**（对数正态 σ）借自 Olist 实测、**尺度**按单批次冷链补货量标定（ADR-0005）",
+    "时间窗锚定门店当日收货波次（config.RECEIVING_WAVE_*）：同店当日所有订单的送达窗落在同一波（08:30–15:00 之间取波次起点 + 0–10 分钟抖动），因此同店各单的窗有公共交集——这是 ADR-0004『单点一访 + 逐单判定时间窗达成率』能同时成立的前提（否则一次到访无法同时满足多单）",
+    "重量/体积尺度锚点：单张订单中位 40 kg / 0.3 m³（便利店/超市单批次冷链补货量），使 1.4t 载重约束在成都场景下非退化",
+    "轨迹按「DC → 该运单送达点」直送分段仿真（不依赖路线，避免与模块二循环依赖）；坐标为两点间线性插值，仅用于速度/温度时序与温控达标率，**不得用于里程计算**",
+    "「晚点」是异常表中的一个**异常类型标签**（含延误幅度），总体异常概率 = Olist 实测延迟率；模块二的时间窗达成率由路由计划到达时刻 + 本表 delay_min 判定，两者口径不同不可混用",
+    "周五 / 雨天改变异常**构成**（抬高「晚点」份额），周五另叠加整体异常概率倍率（×1.4，午后拥堵与周末备货高峰）；片区倍率与周五倍率一起经全样本归一，故全局总体异常率仍严格等于 Olist 实测延迟率",
+    "雨天概率按月给定（{6: 0.35, 7: 0.42, 8: 0.35, 9: 0.28}），仅用于生成、不入 KPI 口径",
+    "车厢温度越界有两个来源：到点卸货开门温升（日常主因）与「温控波动」异常（全程温升）",
+    "现状派车按固定份额轮派（份额不均以复现埋点④），非真实调度结果；模块二将以其自身贪心基线与之对照"
+  ]
+}

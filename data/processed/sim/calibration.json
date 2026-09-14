@@ -1,0 +1,28 @@
+{
+  "against_layer_a": {
+    "scale": "同尺度（秒/行）",
+    "layer_a": {
+      "pick_sec_per_line_mean": 108.6,
+      "cv": 0.418
+    },
+    "sim": {
+      "pick_sec_per_line_mean": 110.48,
+      "cv": 0.409
+    },
+    "mean_ratio_sim_over_a": 1.017,
+    "note": "锚定数据层 A；CV 接近即形状一致，无需调参；偏差大时记录调参过程。"
+  },
+  "against_olist_shape": {
+    "scale": "跨尺度（仿真=秒级仓内履约，Olist=天级出库响应）——仅比无量纲形状",
+    "olist_outbound_response": {
+      "cv": 1.221,
+      "skew": 5.154
+    },
+    "sim_fulfillment": {
+      "cv": 0.574,
+      "skew": 0.943
+    },
+    "note": "ADR-0001：不做绝对时长 KS（尺度不可比）；CV/偏度量级接近即形状对照通过。"
+  },
+  "adr": "0001（不做跨尺度绝对时长 KS）"
+}

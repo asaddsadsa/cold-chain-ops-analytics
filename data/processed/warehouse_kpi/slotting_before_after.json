@@ -1,0 +1,11 @@
+{
+  "walk_cost_before": 3932220.0,
+  "walk_cost_after": 1538212.5,
+  "reduction_pct": 60.88,
+  "walk_m_per_line_before": 89.12,
+  "walk_m_per_line_after": 34.86,
+  "walk_sec_per_line_before": 74.27,
+  "walk_sec_per_line_after": 29.05,
+  "walk_sec_per_line_saved": 45.22,
+  "walk_speed_m_per_sec": 1.2
+}

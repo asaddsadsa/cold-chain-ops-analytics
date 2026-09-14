@@ -1,0 +1,51 @@
+{
+  "friday_late": {
+    "rate_1": 0.0751,
+    "rate_0": 0.0337,
+    "ratio": 2.23,
+    "n_1": 1344,
+    "n_0": 7955,
+    "z": 7.2,
+    "significant_at_5pct": true,
+    "label": "周五「晚点」率 vs 其他工作日",
+    "reproduced": true
+  },
+  "r07_anomaly": {
+    "rate_1": 0.1514,
+    "rate_0": 0.0529,
+    "ratio": 2.86,
+    "n_1": 2603,
+    "n_0": 6696,
+    "z": 15.68,
+    "significant_at_5pct": true,
+    "label": "R07 片区异常率 vs 其他片区",
+    "reproduced": true
+  },
+  "rainy_late": {
+    "rate_1": 0.0534,
+    "rate_0": 0.03,
+    "ratio": 1.78,
+    "n_1": 3861,
+    "n_0": 5438,
+    "z": 5.69,
+    "significant_at_5pct": true,
+    "label": "雨日「晚点」率 vs 非雨日",
+    "reproduced": true
+  },
+  "weekly_replication": {
+    "friday_late": {
+      "n_weeks": 13,
+      "n_significant": 6,
+      "min_group_n": 91,
+      "median_group_n": 98
+    },
+    "r07_anomaly": {
+      "n_weeks": 13,
+      "n_significant": 13,
+      "min_group_n": 176,
+      "median_group_n": 203
+    },
+    "note": "逐周检验的功效受单周样本量限制（min_group_n 即最小的那个对比组运单数）；埋点是**总体性效应**，可复现证据以池化检验为准，逐周计数说明「每周复盘时能否当周看出」——当周不显著不等于埋点不存在"
+  },
+  "data_category": "过程仿真（数据层 D 埋点）+ 真实观测（总体水平由 Olist 延迟率标定）"
+}

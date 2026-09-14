@@ -1,0 +1,10 @@
+{
+  "n_nodes": 50,
+  "built_at": "2026-09-14T13:42:26",
+  "dc": {
+    "lng": 104.300267,
+    "lat": 30.840815,
+    "source": "amap_geocode"
+  },
+  "source": "amap"
+}

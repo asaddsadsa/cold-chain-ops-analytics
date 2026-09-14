@@ -1,0 +1,32 @@
+# 区域仓配中心运营数据分析与配送路径优化 —— 依赖锁定
+# Python 3.14.6（见 ADR-0006）；pandas 锁 2.3.3，不用 3.0（规避 CoW 破坏性变更）
+# 安装：python -m pip install -r requirements.txt
+
+# 数据处理
+pandas==2.3.3
+numpy==2.2.6
+scipy==1.18.1
+
+# 仿真与优化
+simpy==4.1.2
+ortools==9.15.6755
+
+# 地理与降级路网
+osmnx==2.1.1
+networkx==3.6.1
+folium==0.20.0
+
+# 看板
+streamlit==1.63.0
+plotly==7.0.0
+# 注：原技术栈含 streamlit-echarts，但其 0.7.0 与 streamlit 1.63 运行时不兼容
+# （停更孤儿包，用旧组件机制）。看板图表统一用 Plotly 替代，见 ADR-0011。
+
+# 外部数据获取与工具（注：openpyxl 已移除，见 ADR-0012）
+requests==2.34.2
+kagglehub==1.0.2
+python-dotenv==1.2.3
+Faker==40.38.0
+
+# 测试
+pytest==9.1.1

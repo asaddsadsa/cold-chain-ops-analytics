@@ -1,0 +1,87 @@
+{
+  "data_category": "过程仿真",
+  "source": "数据层 A 仿真仓五表（data/warehouse/）",
+  "kpis": {
+    "inventory_accuracy": {
+      "rate": 0.9989506894131016,
+      "abs_diff_value": 60524.78,
+      "book_value": 57680519.72,
+      "n_records": 4500
+    },
+    "receipt_timeliness": {
+      "rate": 0.8148677626876341,
+      "n_records": 9793,
+      "n_late": 1813,
+      "tolerance_min": 30.0
+    },
+    "picking_efficiency": {
+      "lines_per_hour": 33.14999871645593,
+      "n_lines": 44121,
+      "picker_hours": 1330.95,
+      "sec_per_line": 108.59728927268195
+    },
+    "avg_fulfillment_hours": {
+      "hours": 0.9854603366627377,
+      "n_orders": 26865,
+      "median_hours": 0.9977777777777778
+    },
+    "location_utilization": {
+      "rate": 0.625,
+      "occupied": 500,
+      "total_locations": 800
+    },
+    "stocktake_discrepancy": {
+      "rate": 0.05288888888888889,
+      "n_records": 4500,
+      "n_diff": 238
+    }
+  },
+  "abc": {
+    "thresholds": {
+      "A": 0.7,
+      "B": 0.9
+    },
+    "total_lines": 44121,
+    "n_sku": 500,
+    "by_class": {
+      "A": {
+        "n_sku": 141,
+        "sku_share": 0.282,
+        "line_share": 0.7004
+      },
+      "B": {
+        "n_sku": 192,
+        "sku_share": 0.384,
+        "line_share": 0.2
+      },
+      "C": {
+        "n_sku": 167,
+        "sku_share": 0.334,
+        "line_share": 0.0995
+      }
+    }
+  },
+  "slotting": {
+    "walk_cost_before": 3932220.0,
+    "walk_cost_after": 1538212.5,
+    "reduction_pct": 60.88,
+    "walk_m_per_line_before": 89.12,
+    "walk_m_per_line_after": 34.86,
+    "walk_sec_per_line_before": 74.27,
+    "walk_sec_per_line_after": 29.05,
+    "walk_sec_per_line_saved": 45.22,
+    "walk_speed_m_per_sec": 1.2
+  },
+  "embedding_checks": {
+    "p03_discrepancy": {
+      "p03_rate": 0.1745,
+      "other_rate": 0.0402,
+      "ratio": 4.35
+    },
+    "pick_slowdown_14_16": {
+      "sec_per_line_14_16": 168.5,
+      "sec_per_line_other": 88.7,
+      "ratio": 1.9
+    }
+  }
+}

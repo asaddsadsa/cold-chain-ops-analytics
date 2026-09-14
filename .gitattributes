@@ -1,0 +1,14 @@
+# 统一换行符：仓库内一律 LF，检出时不自动转换。
+# 理由：本工程在 Windows 上开发、预期被跨平台克隆。不统一的话，Windows 端 core.autocrlf=true
+# 会让「只改了一行」的提交在全仓范围内产生换行符 diff，review 与 blame 都会被噪声淹没。
+# 首次提交时就定下来，比事后批量改省事得多。
+* text=auto eol=lf
+
+# 二进制产物不做任何换行转换（否则文件会被损坏）
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.pdf binary
+*.xlsx binary
+*.xls binary
+*.zip binary

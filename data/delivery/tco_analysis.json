@@ -1,0 +1,176 @@
+{
+  "data_category": "情景假设",
+  "source": "参数锚点=需求文档 2026-09 市场检索，登记于 data_sources_ledger.md 第 4 节（ADR-0009，URL 待补）",
+  "reference_daily_km": 60.0,
+  "curves": {
+    "diesel": {
+      "daily_fixed": 353.0,
+      "per_km": 1.11,
+      "mileage_km": [
+        0.0,
+        20.0,
+        40.0,
+        60.0,
+        80.0,
+        100.0,
+        120.0,
+        150.0,
+        200.0,
+        250.0
+      ],
+      "daily_total_cost": [
+        353.0,
+        375.2,
+        397.4,
+        419.6,
+        441.8,
+        464.0,
+        486.2,
+        519.5,
+        575.0,
+        630.5
+      ]
+    },
+    "ev": {
+      "daily_fixed": 384.0,
+      "per_km": 0.44,
+      "mileage_km": [
+        0.0,
+        20.0,
+        40.0,
+        60.0,
+        80.0,
+        100.0,
+        120.0,
+        150.0,
+        200.0,
+        250.0
+      ],
+      "daily_total_cost": [
+        384.0,
+        392.8,
+        401.6,
+        410.4,
+        419.2,
+        428.0,
+        436.8,
+        450.0,
+        472.0,
+        494.0
+      ]
+    }
+  },
+  "breakeven_km": {
+    "km": 46.27,
+    "basis": "柴油自购 vs 纯电租赁 日总成本相等点"
+  },
+  "sensitivity": {
+    "driver_wage": {
+      "low": {
+        "diesel_daily_cost": 381.6,
+        "ev_daily_cost": 372.4,
+        "breakeven_km": 46.27
+      },
+      "mid": {
+        "diesel_daily_cost": 419.6,
+        "ev_daily_cost": 410.4,
+        "breakeven_km": 46.27
+      },
+      "high": {
+        "diesel_daily_cost": 535.6,
+        "ev_daily_cost": 526.4,
+        "breakeven_km": 46.27
+      }
+    },
+    "energy_price": {
+      "low": {
+        "diesel_daily_cost": 416.0,
+        "ev_daily_cost": 402.0,
+        "breakeven_km": 41.33
+      },
+      "mid": {
+        "diesel_daily_cost": 419.6,
+        "ev_daily_cost": 410.4,
+        "breakeven_km": 46.27
+      },
+      "high": {
+        "diesel_daily_cost": 434.0,
+        "ev_daily_cost": 417.0,
+        "breakeven_km": 38.75
+      }
+    },
+    "rent": {
+      "low": {
+        "diesel_daily_cost": 419.6,
+        "ev_daily_cost": 372.4,
+        "breakeven_km": -10.45
+      },
+      "mid": {
+        "diesel_daily_cost": 419.6,
+        "ev_daily_cost": 410.4,
+        "breakeven_km": 46.27
+      },
+      "high": {
+        "diesel_daily_cost": 419.6,
+        "ev_daily_cost": 449.4,
+        "breakeven_km": 104.48
+      }
+    }
+  },
+  "huolala_comparison": [
+    {
+      "profile": "短途轻载",
+      "stops": 6,
+      "distance_km": 25.0,
+      "self_diesel_cost": 380.75,
+      "self_ev_cost": 395.0,
+      "self_best_mode": "diesel",
+      "self_best_cost": 380.75,
+      "huolala_cost": 190.0,
+      "delta_pct_vs_huolala": 100.4,
+      "verdict": "外包更省",
+      "huolala_crossover_km": 87.7
+    },
+    {
+      "profile": "中程标准",
+      "stops": 12,
+      "distance_km": 60.0,
+      "self_diesel_cost": 419.6,
+      "self_ev_cost": 410.4,
+      "self_best_mode": "ev",
+      "self_best_cost": 410.4,
+      "huolala_cost": 487.25,
+      "delta_pct_vs_huolala": -15.8,
+      "verdict": "自营更省",
+      "huolala_crossover_km": 39.3
+    },
+    {
+      "profile": "长程多点",
+      "stops": 18,
+      "distance_km": 120.0,
+      "self_diesel_cost": 486.2,
+      "self_ev_cost": 436.8,
+      "self_best_mode": "ev",
+      "self_best_cost": 436.8,
+      "huolala_cost": 964.25,
+      "delta_pct_vs_huolala": -54.7,
+      "verdict": "自营更省",
+      "huolala_crossover_km": null
+    }
+  ],
+  "recommendation": {
+    "recommended_mode": "ev",
+    "breakeven_km": 46.27,
+    "reference_daily_km": 60.0,
+    "daily_saving_vs_diesel": 9.2,
+    "rationale": "单车日均里程超过 46.3 km 时纯电租赁日总成本低于柴油自购（纯电公里变动成本 0.44 元/km 显著低于柴油 1.11 元/km，代价是日固定成本高 31 元）。代表里程 60 km 已越过盈亏平衡点，纯电每日省约 9 元；反之短途轻载线路（≲ 46 km）柴油更省。",
+    "caveats": [
+      "司机工资对两模式同额，相减抵消，不影响盈亏平衡里程；",
+      "租金档位可令盈亏平衡里程为负（低租金时纯电在全里程段占优）；",
+      "能源价格低/高两档为「油价档 × 能耗档」与「电价档」的独立取值组合，并非同一物理量的等比缩放，故盈亏平衡里程对能源档位不单调。",
+      "对照表按单车单日 1 趟摊销日固定成本；一日多趟时自营成本进一步摊薄。"
+    ],
+    "comparison_basis": "单车单日 1 趟、日固定成本全额摊入该趟；里程取**优化前**口径。模块二路径优化后单趟里程与成本都会下降，优化后的对照由 11 号票叠加。",
+    "data_category": "情景假设（参数锚点见 config 与台账第 4 节，ADR-0009）"
+  }
+}

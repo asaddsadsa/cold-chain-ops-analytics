@@ -1,0 +1,43 @@
+# ===== 密钥（严禁提交）=====
+.env
+.env.*
+!.env.example
+
+# ===== 原始大文件（README 说明获取方式，不提交）=====
+# Olist 九表（archive 共 121M，geolocation 单表 59M）与 Solomon 算例
+data/raw/
+# archive/ 是 Olist 九表的本地预置源（同 121M），与 data/raw/ 同质，不提交；
+# 复现走「本地→kagglehub→报错指引」三段式（见 03 号票），不依赖 archive/ 入库。
+archive/
+
+# ===== 与本项目无关的既存目录（不纳入版本控制）=====
+_kh/
+_pyvrp/
+_r/
+.scratch/tco/
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+env/
+
+# ===== IDE / 系统 =====
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# ===== 报告中间产物 =====
+report/build/
+*.log
+
+# 注意：以下目录【需提交】，是「无网络/无密钥可复现」的关键缓存与产物：
+#   data/geo/        —— 高德 POI 与距离/时间矩阵的永久缓存（ADR-0008）
+#   data/warehouse/  —— 仿真仓表（固定种子可复现）
+#   data/delivery/   —— 配送情景表
+#   data/processed/  —— 全部 KPI、对照实验、优化结果（报告数字溯源依据）
+# 若某产物体积过大需另行评估，在对应票中显式决定，不在此处一刀切忽略。

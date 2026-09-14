@@ -1,0 +1,127 @@
+{
+  "data_category": "情景假设（需求）+ 学术基准（算法）",
+  "representative_day": "2026-07-13",
+  "representative_day_orders": 132,
+  "representative_day_stops": 45,
+  "matrix_source": "amap",
+  "baseline_rule": "最近邻贪心：从 DC 出发，每步选择「载重/容积仍装得下且能按时窗送达」的最近未访问点；无可行点时回 DC 收车并派下一辆。模拟『人工就近派车』的现有做法。",
+  "solve": {
+    "time_limit_sec": 30.0,
+    "first_solution_strategy": "PARALLEL_CHEAPEST_INSERTION",
+    "local_search": "GUIDED_LOCAL_SEARCH",
+    "vehicles_available": 15,
+    "service_min": 15.0
+  },
+  "baseline": {
+    "n_vehicles": 11,
+    "n_stops": 45,
+    "total_distance_km": 1170.14,
+    "time_window": {
+      "rate": 0.7954545454545454,
+      "basis": "实际送达（计划到访 + 该点在途延误）",
+      "n_orders": 132,
+      "n_ontime": 105,
+      "n_unserved": 0,
+      "n_stops": 45,
+      "mean_orders_per_stop": 2.93,
+      "n_stops_with_full_window_coverage": 45,
+      "ceiling": {
+        "max_ontime_orders": 132,
+        "n_orders": 132,
+        "ceiling_rate": 1.0,
+        "n_stops_where_all_windows_overlap": 35,
+        "n_stops": 45,
+        "note": "该上限只受「单点一访」聚合规则约束；实测达成率低于它，说明差距出在**目标函数不含准时项**（目标=固定成本+里程成本），而不是聚合规则不可逾越"
+      },
+      "gap_to_ceiling_pp": 20.45
+    },
+    "load_rate": {
+      "mean": 0.7003162337662339,
+      "median": 0.845407142857143,
+      "p25": 0.5398357142857143,
+      "p75": 0.8959714285714286,
+      "min": 0.14791428571428575,
+      "max": 0.9441642857142857,
+      "n_trips": 11
+    },
+    "mileage_utilization": 0.5858,
+    "cost": {
+      "diesel": {
+        "total": 5181.86,
+        "per_order": 39.26,
+        "per_km": 1.11,
+        "fixed_per_day": 353.0
+      },
+      "ev": {
+        "total": 4738.86,
+        "per_order": 35.9,
+        "per_km": 0.44,
+        "fixed_per_day": 384.0
+      }
+    }
+  },
+  "optimized": {
+    "n_vehicles": 10,
+    "n_stops": 45,
+    "total_distance_km": 876.15,
+    "time_window": {
+      "rate": 0.7954545454545454,
+      "basis": "实际送达（计划到访 + 该点在途延误）",
+      "n_orders": 132,
+      "n_ontime": 105,
+      "n_unserved": 0,
+      "n_stops": 45,
+      "mean_orders_per_stop": 2.93,
+      "n_stops_with_full_window_coverage": 45,
+      "ceiling": {
+        "max_ontime_orders": 132,
+        "n_orders": 132,
+        "ceiling_rate": 1.0,
+        "n_stops_where_all_windows_overlap": 35,
+        "n_stops": 45,
+        "note": "该上限只受「单点一访」聚合规则约束；实测达成率低于它，说明差距出在**目标函数不含准时项**（目标=固定成本+里程成本），而不是聚合规则不可逾越"
+      },
+      "gap_to_ceiling_pp": 20.45
+    },
+    "load_rate": {
+      "mean": 0.7703478571428571,
+      "median": 0.7333107142857143,
+      "p25": 0.6560464285714285,
+      "p75": 0.9011053571428572,
+      "min": 0.6152714285714286,
+      "max": 0.9426428571428573,
+      "n_trips": 10
+    },
+    "mileage_utilization": 0.691,
+    "cost": {
+      "diesel": {
+        "total": 4502.53,
+        "per_order": 34.11,
+        "per_km": 1.11,
+        "fixed_per_day": 353.0
+      },
+      "ev": {
+        "total": 4225.51,
+        "per_order": 32.01,
+        "per_km": 0.44,
+        "fixed_per_day": 384.0
+      }
+    }
+  },
+  "baseline_all_days": {
+    "days": 90,
+    "total_distance_km": 96932.6,
+    "n_trips": 898,
+    "n_orders_total": 9299,
+    "n_orders_served": 9037,
+    "n_orders_unserved": 262,
+    "n_ontime": 7816,
+    "cost": {
+      "diesel": 424589.22,
+      "ev": 387482.36
+    },
+    "days_with_unserved": 53,
+    "time_window_rate": 0.8649,
+    "unserved_note": "未服务单 = 该点时间窗在车辆可抵达之前就关闭（08:00 发车仍够不到），基线贪心会收车跳过；全量口径如实计入 n_orders_unserved，不粉饰为「已覆盖」"
+  }
+}

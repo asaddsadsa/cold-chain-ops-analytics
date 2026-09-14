@@ -1,0 +1,250 @@
+{
+  "arms": [
+    {
+      "arm_id": "exp2_p4",
+      "n_pickers": 4,
+      "repeats": 30,
+      "metrics": {
+        "avg_order_pick_sec": {
+          "mean": 110.31,
+          "ci95_low": 108.817,
+          "ci95_high": 111.802,
+          "n": 30,
+          "std": 3.997
+        },
+        "total_walk_m": {
+          "mean": 18018.625,
+          "ci95_low": 17806.112,
+          "ci95_high": 18231.138,
+          "n": 30,
+          "std": 569.121
+        },
+        "avg_walk_m_per_order": {
+          "mean": 60.062,
+          "ci95_low": 59.354,
+          "ci95_high": 60.77,
+          "n": 30,
+          "std": 1.897
+        },
+        "avg_fulfillment_sec": {
+          "mean": 195.603,
+          "ci95_low": 192.619,
+          "ci95_high": 198.586,
+          "n": 30,
+          "std": 7.991
+        },
+        "picker_utilization": {
+          "mean": 0.238,
+          "ci95_low": 0.234,
+          "ci95_high": 0.242,
+          "n": 30,
+          "std": 0.011
+        },
+        "fulfillment_cv": {
+          "mean": 0.443,
+          "ci95_low": 0.43,
+          "ci95_high": 0.457,
+          "n": 30,
+          "std": 0.036
+        },
+        "fulfillment_skew": {
+          "mean": 1.223,
+          "ci95_low": 1.132,
+          "ci95_high": 1.313,
+          "n": 30,
+          "std": 0.242
+        },
+        "line_pick_sec_mean": {
+          "mean": 67.052,
+          "ci95_low": 66.412,
+          "ci95_high": 67.692,
+          "n": 30,
+          "std": 1.714
+        },
+        "line_pick_sec_cv": {
+          "mean": 0.519,
+          "ci95_low": 0.513,
+          "ci95_high": 0.525,
+          "n": 30,
+          "std": 0.015
+        }
+      }
+    },
+    {
+      "arm_id": "exp2_p5",
+      "n_pickers": 5,
+      "repeats": 30,
+      "metrics": {
+        "avg_order_pick_sec": {
+          "mean": 111.023,
+          "ci95_low": 109.377,
+          "ci95_high": 112.669,
+          "n": 30,
+          "std": 4.409
+        },
+        "total_walk_m": {
+          "mean": 18113.292,
+          "ci95_low": 17908.728,
+          "ci95_high": 18317.855,
+          "n": 30,
+          "std": 547.831
+        },
+        "avg_walk_m_per_order": {
+          "mean": 60.378,
+          "ci95_low": 59.696,
+          "ci95_high": 61.06,
+          "n": 30,
+          "std": 1.826
+        },
+        "avg_fulfillment_sec": {
+          "mean": 186.917,
+          "ci95_low": 184.45,
+          "ci95_high": 189.384,
+          "n": 30,
+          "std": 6.606
+        },
+        "picker_utilization": {
+          "mean": 0.189,
+          "ci95_low": 0.186,
+          "ci95_high": 0.192,
+          "n": 30,
+          "std": 0.008
+        },
+        "fulfillment_cv": {
+          "mean": 0.414,
+          "ci95_low": 0.405,
+          "ci95_high": 0.423,
+          "n": 30,
+          "std": 0.025
+        },
+        "fulfillment_skew": {
+          "mean": 1.18,
+          "ci95_low": 1.117,
+          "ci95_high": 1.244,
+          "n": 30,
+          "std": 0.17
+        },
+        "line_pick_sec_mean": {
+          "mean": 67.065,
+          "ci95_low": 66.357,
+          "ci95_high": 67.773,
+          "n": 30,
+          "std": 1.896
+        },
+        "line_pick_sec_cv": {
+          "mean": 0.52,
+          "ci95_low": 0.513,
+          "ci95_high": 0.526,
+          "n": 30,
+          "std": 0.018
+        }
+      }
+    },
+    {
+      "arm_id": "exp2_p6",
+      "n_pickers": 6,
+      "repeats": 30,
+      "metrics": {
+        "avg_order_pick_sec": {
+          "mean": 110.301,
+          "ci95_low": 109.072,
+          "ci95_high": 111.53,
+          "n": 30,
+          "std": 3.29
+        },
+        "total_walk_m": {
+          "mean": 18075.875,
+          "ci95_low": 17920.592,
+          "ci95_high": 18231.158,
+          "n": 30,
+          "std": 415.855
+        },
+        "avg_walk_m_per_order": {
+          "mean": 60.253,
+          "ci95_low": 59.735,
+          "ci95_high": 60.771,
+          "n": 30,
+          "std": 1.386
+        },
+        "avg_fulfillment_sec": {
+          "mean": 184.545,
+          "ci95_low": 183.0,
+          "ci95_high": 186.089,
+          "n": 30,
+          "std": 4.136
+        },
+        "picker_utilization": {
+          "mean": 0.157,
+          "ci95_low": 0.155,
+          "ci95_high": 0.159,
+          "n": 30,
+          "std": 0.006
+        },
+        "fulfillment_cv": {
+          "mean": 0.405,
+          "ci95_low": 0.396,
+          "ci95_high": 0.415,
+          "n": 30,
+          "std": 0.025
+        },
+        "fulfillment_skew": {
+          "mean": 1.159,
+          "ci95_low": 1.08,
+          "ci95_high": 1.238,
+          "n": 30,
+          "std": 0.212
+        },
+        "line_pick_sec_mean": {
+          "mean": 66.839,
+          "ci95_low": 66.271,
+          "ci95_high": 67.408,
+          "n": 30,
+          "std": 1.522
+        },
+        "line_pick_sec_cv": {
+          "mean": 0.518,
+          "ci95_low": 0.512,
+          "ci95_high": 0.523,
+          "n": 30,
+          "std": 0.014
+        }
+      }
+    }
+  ],
+  "tradeoff": {
+    "curve": [
+      {
+        "n_pickers": 4,
+        "avg_fulfillment_sec": 195.603,
+        "daily_labor_cost": 920.0
+      },
+      {
+        "n_pickers": 5,
+        "avg_fulfillment_sec": 186.917,
+        "daily_labor_cost": 1150.0
+      },
+      {
+        "n_pickers": 6,
+        "avg_fulfillment_sec": 184.545,
+        "daily_labor_cost": 1380.0
+      }
+    ],
+    "marginals": [
+      {
+        "from_pickers": 4,
+        "to_pickers": 5,
+        "delta_fulfillment_sec": -8.69,
+        "delta_cost": 230.0,
+        "sec_saved_per_yuan": 0.0378
+      },
+      {
+        "from_pickers": 5,
+        "to_pickers": 6,
+        "delta_fulfillment_sec": -2.37,
+        "delta_cost": 230.0,
+        "sec_saved_per_yuan": 0.0103
+      }
+    ],
+    "knee_at_pickers": 5
+  }
+}

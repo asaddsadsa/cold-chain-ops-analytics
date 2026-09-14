@@ -1,0 +1,535 @@
+{
+  "data_category": "情景假设（成本参数锚点见 config 与台账第 4 节，ADR-0009）",
+  "reference_daily_km": 87.62,
+  "reference_basis": "代表日**优化后**的单趟平均里程——优化压缩了趟次里程，敏感性须按新的里程水平评估",
+  "mode_costs": {
+    "workdays_per_month": 26,
+    "per_trip_allocation_exact": true,
+    "n_vehicles_by_plan": {
+      "baseline": 11,
+      "optimized": 10
+    },
+    "basis": "自营单趟成本 = 该趟实际里程 × 公里变动成本 + 日固定成本。代表日每台车恰好只跑 1 趟（用车数 = 趟次数，10 号票产物可验），故日固定成本全额摊入该趟是**精确分摊**而非近似；若将来一趟变多趟，该口径会高估单趟成本，模块会在产物里标注。货拉拉按 config 计价规则对同一里程/点数报价。仅作决策对照，不进自营车队成本（ADR-0009）。",
+    "diesel": {
+      "baseline": {
+        "day_total": 5181.88,
+        "day_per_order": 39.26,
+        "month_total": 134728.82,
+        "month_per_order": 1020.67,
+        "n_trips": 11,
+        "n_orders": 132,
+        "total_distance_km": 1170.16,
+        "daily_fixed_per_vehicle": 353.0,
+        "per_km": 1.11
+      },
+      "optimized": {
+        "day_total": 4502.55,
+        "day_per_order": 34.11,
+        "month_total": 117066.27,
+        "month_per_order": 886.87,
+        "n_trips": 10,
+        "n_orders": 132,
+        "total_distance_km": 876.17,
+        "daily_fixed_per_vehicle": 353.0,
+        "per_km": 1.11
+      },
+      "saving": {
+        "day": 679.33,
+        "month": 17662.55,
+        "day_per_order": 5.15,
+        "month_per_order": 133.8,
+        "cost_reduction_pct": 13.11
+      }
+    },
+    "ev": {
+      "baseline": {
+        "day_total": 4738.87,
+        "day_per_order": 35.9,
+        "month_total": 123210.63,
+        "month_per_order": 933.41,
+        "n_trips": 11,
+        "n_orders": 132,
+        "total_distance_km": 1170.16,
+        "daily_fixed_per_vehicle": 384.0,
+        "per_km": 0.44
+      },
+      "optimized": {
+        "day_total": 4225.51,
+        "day_per_order": 32.01,
+        "month_total": 109863.38,
+        "month_per_order": 832.3,
+        "n_trips": 10,
+        "n_orders": 132,
+        "total_distance_km": 876.17,
+        "daily_fixed_per_vehicle": 384.0,
+        "per_km": 0.44
+      },
+      "saving": {
+        "day": 513.36,
+        "month": 13347.25,
+        "day_per_order": 3.89,
+        "month_per_order": 101.11,
+        "cost_reduction_pct": 10.83
+      }
+    }
+  },
+  "curves": {
+    "diesel": {
+      "daily_fixed": 353.0,
+      "per_km": 1.11,
+      "mileage_km": [
+        0.0,
+        20.0,
+        40.0,
+        60.0,
+        80.0,
+        100.0,
+        120.0,
+        150.0,
+        200.0,
+        250.0
+      ],
+      "daily_total_cost": [
+        353.0,
+        375.2,
+        397.4,
+        419.6,
+        441.8,
+        464.0,
+        486.2,
+        519.5,
+        575.0,
+        630.5
+      ]
+    },
+    "ev": {
+      "daily_fixed": 384.0,
+      "per_km": 0.44,
+      "mileage_km": [
+        0.0,
+        20.0,
+        40.0,
+        60.0,
+        80.0,
+        100.0,
+        120.0,
+        150.0,
+        200.0,
+        250.0
+      ],
+      "daily_total_cost": [
+        384.0,
+        392.8,
+        401.6,
+        410.4,
+        419.2,
+        428.0,
+        436.8,
+        450.0,
+        472.0,
+        494.0
+      ]
+    }
+  },
+  "breakeven_km": {
+    "km": 46.27,
+    "basis": "柴油自购 vs 纯电租赁 日总成本相等点"
+  },
+  "sensitivity": {
+    "driver_wage": {
+      "low": {
+        "diesel_daily_cost": 412.25,
+        "ev_daily_cost": 384.55,
+        "breakeven_km": 46.27
+      },
+      "mid": {
+        "diesel_daily_cost": 450.25,
+        "ev_daily_cost": 422.55,
+        "breakeven_km": 46.27
+      },
+      "high": {
+        "diesel_daily_cost": 566.25,
+        "ev_daily_cost": 538.55,
+        "breakeven_km": 46.27
+      }
+    },
+    "energy_price": {
+      "low": {
+        "diesel_daily_cost": 445.0,
+        "ev_daily_cost": 410.29,
+        "breakeven_km": 41.33
+      },
+      "mid": {
+        "diesel_daily_cost": 450.25,
+        "ev_daily_cost": 422.55,
+        "breakeven_km": 46.27
+      },
+      "high": {
+        "diesel_daily_cost": 471.28,
+        "ev_daily_cost": 432.19,
+        "breakeven_km": 38.75
+      }
+    },
+    "rent": {
+      "low": {
+        "diesel_daily_cost": 450.25,
+        "ev_daily_cost": 384.55,
+        "breakeven_km": -10.45
+      },
+      "mid": {
+        "diesel_daily_cost": 450.25,
+        "ev_daily_cost": 422.55,
+        "breakeven_km": 46.27
+      },
+      "high": {
+        "diesel_daily_cost": 450.25,
+        "ev_daily_cost": 461.55,
+        "breakeven_km": 104.48
+      }
+    }
+  },
+  "recommendation": {
+    "recommended_mode": "ev",
+    "basis": "代表日优化后口径（optimized）",
+    "breakeven_km": 46.27,
+    "daily_saving_vs_other_mode": 277.04,
+    "outsourcing_verdict": "代表日 10 趟中，自营更省 7 趟、外包更省 3 趟、基本持平 0 趟；全外包需 4,495 元 vs 自营 4,186 元",
+    "caveats": [
+      "自营单趟成本按「每车每日 1 趟」全额摊入日固定成本；该前提在代表日成立（用车数 = 趟次数），趟次合并时会高估单趟成本；",
+      "`self_cost` 取柴油/纯电较省者，隐含「车队可按线路自由选模式」，是自营竞争力的**上界**，实际单一模式车队应看对应模式那一列；",
+      "司机工资对两模式同额、相减抵消，不影响盈亏平衡里程（06 号票已实测）；",
+      "货拉拉计价为公开计价规则的情景假设，未含实际议价与高峰期加价。"
+    ]
+  },
+  "outsourcing": {
+    "basis": "自营单趟成本 = 该趟实际里程 × 公里变动成本 + 日固定成本。代表日每台车恰好只跑 1 趟（用车数 = 趟次数，10 号票产物可验），故日固定成本全额摊入该趟是**精确分摊**而非近似；若将来一趟变多趟，该口径会高估单趟成本，模块会在产物里标注。货拉拉按 config 计价规则对同一里程/点数报价。仅作决策对照，不进自营车队成本（ADR-0009）。",
+    "primary_plan": "optimized",
+    "by_plan": {
+      "baseline": {
+        "n_trips": 11,
+        "total_self_cost": 4738.87,
+        "total_self_diesel_cost": 5181.88,
+        "total_self_ev_cost": 4738.87,
+        "total_huolala_cost": 5804.91,
+        "n_trips_self_cheaper": 11,
+        "n_trips_outsource_cheaper": 0,
+        "n_trips_tie": 0,
+        "best_mode": "ev",
+        "delta_pct_vs_huolala": -18.36
+      },
+      "optimized": {
+        "n_trips": 10,
+        "total_self_cost": 4185.77,
+        "total_self_diesel_cost": 4502.55,
+        "total_self_ev_cost": 4225.51,
+        "total_huolala_cost": 4495.22,
+        "n_trips_self_cheaper": 7,
+        "n_trips_outsource_cheaper": 3,
+        "n_trips_tie": 0,
+        "best_mode": "ev",
+        "delta_pct_vs_huolala": -6.88
+      }
+    },
+    "total_self_cost": 4185.77,
+    "total_huolala_cost": 4495.22,
+    "n_trips_self_cheaper": 7,
+    "n_trips_outsource_cheaper": 3,
+    "n_trips_tie": 0,
+    "per_trip": [
+      {
+        "trip_id": "diesel-T01",
+        "plan": "baseline",
+        "n_stops": 5,
+        "n_orders": 18,
+        "distance_km": 90.98,
+        "self_diesel_cost": 453.9878,
+        "self_ev_cost": 424.0312,
+        "self_cost": 424.0312,
+        "self_best_mode": "ev",
+        "huolala_cost": 463.82,
+        "delta_pct_vs_huolala": -8.57850028028114,
+        "verdict": "自营更省"
+      },
+      {
+        "trip_id": "diesel-T02",
+        "plan": "baseline",
+        "n_stops": 5,
+        "n_orders": 13,
+        "distance_km": 86.23,
+        "self_diesel_cost": 448.7153,
+        "self_ev_cost": 421.9412,
+        "self_cost": 421.9412,
+        "self_best_mode": "ev",
+        "huolala_cost": 444.1,
+        "delta_pct_vs_huolala": -4.989596937626669,
+        "verdict": "自营更省"
+      },
+      {
+        "trip_id": "diesel-T03",
+        "plan": "baseline",
+        "n_stops": 5,
+        "n_orders": 10,
+        "distance_km": 108.5,
+        "self_diesel_cost": 473.435,
+        "self_ev_cost": 431.74,
+        "self_cost": 431.74,
+        "self_best_mode": "ev",
+        "huolala_cost": 536.53,
+        "delta_pct_vs_huolala": -19.5310607049,
+        "verdict": "自营更省"
+      },
+      {
+        "trip_id": "diesel-T04",
+        "plan": "baseline",
+        "n_stops": 3,
+        "n_orders": 9,
+        "distance_km": 89.02,
+        "self_diesel_cost": 451.8122,
+        "self_ev_cost": 423.1688,
+        "self_cost": 423.1688,
+        "self_best_mode": "ev",
+        "huolala_cost": 455.68,
+        "delta_pct_vs_huolala": -7.134655898876412,
+        "verdict": "自营更省"
+      },
+      {
+        "trip_id": "diesel-T05",
+        "plan": "baseline",
+        "n_stops": 6,
+        "n_orders": 17,
+        "distance_km": 110.95,
+        "self_diesel_cost": 476.1545,
+        "self_ev_cost": 432.818,
+        "self_cost": 432.818,
+        "self_best_mode": "ev",
+        "huolala_cost": 546.69,
+        "delta_pct_vs_huolala": -20.8293548446103,
+        "verdict": "自营更省"
+      },
+      {
+        "trip_id": "diesel-T06",
+        "plan": "baseline",
+        "n_stops": 4,
+        "n_orders": 10,
+        "distance_km": 100.34,
+        "self_diesel_cost": 464.3774,
+        "self_ev_cost": 428.1496,
+        "self_cost": 428.1496,
+        "self_best_mode": "ev",
+        "huolala_cost": 502.66,
+        "delta_pct_vs_huolala": -14.823220467114947,
+        "verdict": "自营更省"
+      },
+      {
+        "trip_id": "diesel-T07",
+        "plan": "baseline",
+        "n_stops": 6,
+        "n_orders": 17,
+        "distance_km": 129.54,
+        "self_diesel_cost": 496.7894,
+        "self_ev_cost": 440.9976,
+        "self_cost": 440.9976,
+        "self_best_mode": "ev",
+        "huolala_cost": 623.84,
+        "delta_pct_vs_huolala": -29.30918184149783,
+        "verdict": "自营更省"
+      },
+      {
+        "trip_id": "diesel-T08",
+        "plan": "baseline",
+        "n_stops": 4,
+        "n_orders": 13,
+        "distance_km": 127.07,
+        "self_diesel_cost": 494.04769999999996,
+        "self_ev_cost": 439.9108,
+        "self_cost": 439.9108,
+        "self_best_mode": "ev",
+        "huolala_cost": 613.59,
+        "delta_pct_vs_huolala": -28.3054156684431,
+        "verdict": "自营更省"
+      },
+      {
+        "trip_id": "diesel-T09",
+        "plan": "baseline",
+        "n_stops": 2,
+        "n_orders": 9,
+        "distance_km": 94.28,
+        "self_diesel_cost": 457.6508,
+        "self_ev_cost": 425.4832,
+        "self_cost": 425.4832,
+        "self_best_mode": "ev",
+        "huolala_cost": 477.51,
+        "delta_pct_vs_huolala": -10.89543674478021,
+        "verdict": "自营更省"
+      },
+      {
+        "trip_id": "diesel-T10",
+        "plan": "baseline",
+        "n_stops": 3,
+        "n_orders": 12,
+        "distance_km": 112.67,
+        "self_diesel_cost": 478.06370000000004,
+        "self_ev_cost": 433.5748,
+        "self_cost": 433.5748,
+        "self_best_mode": "ev",
+        "huolala_cost": 553.83,
+        "delta_pct_vs_huolala": -21.713377751295532,
+        "verdict": "自营更省"
+      },
+      {
+        "trip_id": "diesel-T11",
+        "plan": "baseline",
+        "n_stops": 2,
+        "n_orders": 4,
+        "distance_km": 120.58,
+        "self_diesel_cost": 486.8438,
+        "self_ev_cost": 437.0552,
+        "self_cost": 437.0552,
+        "self_best_mode": "ev",
+        "huolala_cost": 586.66,
+        "delta_pct_vs_huolala": -25.501107967135983,
+        "verdict": "自营更省"
+      },
+      {
+        "trip_id": "diesel-T01",
+        "plan": "optimized",
+        "n_stops": 4,
+        "n_orders": 9,
+        "distance_km": 28.94,
+        "self_diesel_cost": 385.1234,
+        "self_ev_cost": 396.7336,
+        "self_cost": 385.1234,
+        "self_best_mode": "diesel",
+        "huolala_cost": 206.35,
+        "delta_pct_vs_huolala": 86.6360067845893,
+        "verdict": "外包更省"
+      },
+      {
+        "trip_id": "diesel-T02",
+        "plan": "optimized",
+        "n_stops": 4,
+        "n_orders": 11,
+        "distance_km": 29.53,
+        "self_diesel_cost": 385.7783,
+        "self_ev_cost": 396.9932,
+        "self_cost": 385.7783,
+        "self_best_mode": "diesel",
+        "huolala_cost": 208.8,
+        "delta_pct_vs_huolala": 84.75972222222221,
+        "verdict": "外包更省"
+      },
+      {
+        "trip_id": "diesel-T03",
+        "plan": "optimized",
+        "n_stops": 5,
+        "n_orders": 14,
+        "distance_km": 116.01,
+        "self_diesel_cost": 481.77110000000005,
+        "self_ev_cost": 435.0444,
+        "self_cost": 435.0444,
+        "self_best_mode": "ev",
+        "huolala_cost": 567.69,
+        "delta_pct_vs_huolala": -23.365851080695457,
+        "verdict": "自营更省"
+      },
+      {
+        "trip_id": "diesel-T04",
+        "plan": "optimized",
+        "n_stops": 4,
+        "n_orders": 15,
+        "distance_km": 97.27,
+        "self_diesel_cost": 460.9697,
+        "self_ev_cost": 426.7988,
+        "self_cost": 426.7988,
+        "self_best_mode": "ev",
+        "huolala_cost": 489.92,
+        "delta_pct_vs_huolala": -12.883981058131939,
+        "verdict": "自营更省"
+      },
+      {
+        "trip_id": "diesel-T05",
+        "plan": "optimized",
+        "n_stops": 5,
+        "n_orders": 12,
+        "distance_km": 96.94,
+        "self_diesel_cost": 460.6034,
+        "self_ev_cost": 426.6536,
+        "self_cost": 426.6536,
+        "self_best_mode": "ev",
+        "huolala_cost": 488.55,
+        "delta_pct_vs_huolala": -12.669409477023851,
+        "verdict": "自营更省"
+      },
+      {
+        "trip_id": "diesel-T06",
+        "plan": "optimized",
+        "n_stops": 5,
+        "n_orders": 12,
+        "distance_km": 159.75,
+        "self_diesel_cost": 530.3225,
+        "self_ev_cost": 454.29,
+        "self_cost": 454.29,
+        "self_best_mode": "ev",
+        "huolala_cost": 749.21,
+        "delta_pct_vs_huolala": -39.36413021716208,
+        "verdict": "自营更省"
+      },
+      {
+        "trip_id": "diesel-T07",
+        "plan": "optimized",
+        "n_stops": 5,
+        "n_orders": 17,
+        "distance_km": 104.88,
+        "self_diesel_cost": 469.4168,
+        "self_ev_cost": 430.1472,
+        "self_cost": 430.1472,
+        "self_best_mode": "ev",
+        "huolala_cost": 521.5,
+        "delta_pct_vs_huolala": -17.517315436241613,
+        "verdict": "自营更省"
+      },
+      {
+        "trip_id": "diesel-T08",
+        "plan": "optimized",
+        "n_stops": 5,
+        "n_orders": 19,
+        "distance_km": 127.84,
+        "self_diesel_cost": 494.90240000000006,
+        "self_ev_cost": 440.2496,
+        "self_cost": 440.2496,
+        "self_best_mode": "ev",
+        "huolala_cost": 616.79,
+        "delta_pct_vs_huolala": -28.622448483276315,
+        "verdict": "自营更省"
+      },
+      {
+        "trip_id": "diesel-T09",
+        "plan": "optimized",
+        "n_stops": 3,
+        "n_orders": 10,
+        "distance_km": 21.02,
+        "self_diesel_cost": 376.3322,
+        "self_ev_cost": 393.2488,
+        "self_cost": 376.3322,
+        "self_best_mode": "diesel",
+        "huolala_cost": 170.1,
+        "delta_pct_vs_huolala": 121.24174015285128,
+        "verdict": "外包更省"
+      },
+      {
+        "trip_id": "diesel-T10",
+        "plan": "optimized",
+        "n_stops": 5,
+        "n_orders": 13,
+        "distance_km": 93.99,
+        "self_diesel_cost": 457.3289,
+        "self_ev_cost": 425.3556,
+        "self_cost": 425.3556,
+        "self_best_mode": "ev",
+        "huolala_cost": 476.31,
+        "delta_pct_vs_huolala": -10.69773886754425,
+        "verdict": "自营更省"
+      }
+    ]
+  }
+}

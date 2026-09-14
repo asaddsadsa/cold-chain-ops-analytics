@@ -1,0 +1,20 @@
+{
+  "assumption": "代表日=90 天中订单量最大的工作日（ADR-0003）。月/年金额 = 代表日**单均成本节省** × 代表日订单数 × 月/年配送天数；即隐含假设「全年每个配送日的订单强度与单均节省率都等于代表日」。属情景假设，不外推为真实财务承诺。",
+  "representative_day_orders": 132,
+  "daily_saving_by_mode": {
+    "diesel": {
+      "per_order": 5.15,
+      "per_day": 679.8,
+      "per_month": 17674.8,
+      "per_year": 212097.6
+    },
+    "ev": {
+      "per_order": 3.89,
+      "per_day": 513.48,
+      "per_month": 13350.48,
+      "per_year": 160205.76
+    }
+  },
+  "workdays_per_month": 26,
+  "workdays_per_year": 312
+}

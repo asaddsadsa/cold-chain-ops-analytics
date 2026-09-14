@@ -1,0 +1,27 @@
+{
+  "late": {
+    "n_orders": 7658,
+    "mean_review_score": 2.566,
+    "score_distribution_pct": {
+      "1": 46.1,
+      "2": 8.0,
+      "3": 11.3,
+      "4": 12.4,
+      "5": 22.2
+    },
+    "bad_review_rate": 0.54
+  },
+  "on_time": {
+    "n_orders": 87979,
+    "mean_review_score": 4.295,
+    "score_distribution_pct": {
+      "1": 6.5,
+      "2": 2.7,
+      "3": 8.0,
+      "4": 20.4,
+      "5": 62.4
+    },
+    "bad_review_rate": 0.0918
+  },
+  "late_vs_ontime_score_gap": 1.729
+}

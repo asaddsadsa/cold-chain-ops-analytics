@@ -1,0 +1,18 @@
+{
+  "before_after": {
+    "orders_input": 99441,
+    "orders_output": 96282,
+    "order_items_input": 112650,
+    "order_items_output": 109953
+  },
+  "drop_reasons": {
+    "dropped_not_delivered": 2963,
+    "dropped_missing_timestamp": 8,
+    "dropped_time_contradiction": 188
+  },
+  "geolocation": {
+    "raw_rows": 1000163,
+    "aggregated_zip_codes": 19015,
+    "aggregation_method": "median（坐标连续量，中位数抗离群；众数不适用）"
+  }
+}

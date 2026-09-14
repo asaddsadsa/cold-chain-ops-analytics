@@ -1,0 +1,7 @@
+{
+  "n_orders": 96282,
+  "n_late": 7823,
+  "n_on_time": 88459,
+  "delay_rate": 0.0813,
+  "on_time_rate": 0.9187
+}
