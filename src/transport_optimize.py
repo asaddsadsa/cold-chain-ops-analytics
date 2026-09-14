@@ -28,6 +28,7 @@ import numpy as np
 import pandas as pd
 
 from src import config as C
+from src import costing
 
 logger = logging.getLogger(__name__)
 
@@ -513,9 +514,9 @@ def trips_table(routes: list[dict], nodes: pd.DataFrame, fleet_mode: str, cost_p
 
 
 def total_cost(routes: list[dict], mode: str) -> float:
-    """车队总成本 = Σ(每趟 日固定成本 + 里程 × 公里变动成本)（参数读 config）。"""
-    fixed = C.cost_fixed_per_day(mode)
-    per_km = C.cost_per_km(mode)
+    """车队总成本 = Σ(每趟 日固定成本 + 里程 × 公里变动成本)（成本模型见 src/costing.py）。"""
+    fixed = costing.fixed_per_day(mode)
+    per_km = costing.per_km(mode)
     return float(sum(fixed + r["distance_m"] / _M_PER_KM * per_km for r in routes))
 
 
@@ -540,8 +541,8 @@ def transport_kpis(
         out["cost"][mode] = {
             "total": round(cost, 2),
             "per_order": round(cost / n_orders, 2) if n_orders else None,
-            "per_km": C.cost_per_km(mode),
-            "fixed_per_day": C.cost_fixed_per_day(mode),
+            "per_km": costing.per_km(mode),
+            "fixed_per_day": costing.fixed_per_day(mode),
         }
     return out
 
@@ -931,10 +932,10 @@ def run_all(out_dir: Path | None = None, time_limit_sec: float | None = None) ->
     )
     trips = pd.concat(
         [
-            trips_table(base_routes, nodes, "diesel", C.cost_per_km("diesel"),
-                        C.cost_fixed_per_day("diesel"), rated_kg).assign(plan="baseline"),
-            trips_table(opt_routes, nodes, "diesel", C.cost_per_km("diesel"),
-                        C.cost_fixed_per_day("diesel"), rated_kg).assign(plan="optimized"),
+            trips_table(base_routes, nodes, "diesel", costing.per_km("diesel"),
+                        costing.fixed_per_day("diesel"), rated_kg).assign(plan="baseline"),
+            trips_table(opt_routes, nodes, "diesel", costing.per_km("diesel"),
+                        costing.fixed_per_day("diesel"), rated_kg).assign(plan="optimized"),
         ],
         ignore_index=True,
     )

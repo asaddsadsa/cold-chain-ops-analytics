@@ -31,6 +31,7 @@ import numpy as np
 import pandas as pd
 
 from src import config as C
+from src import costing
 from src import gen_delivery_data as GD
 from src import transport_optimize as TO
 
@@ -291,14 +292,14 @@ def mode_cost_before_after(trips: pd.DataFrame, n_vehicles_by_plan: dict | None 
     )
     out: dict = {}
     for mode in ("diesel", "ev"):
-        fixed = float(C.cost_fixed_per_day(mode))
-        per_km = float(C.cost_per_km(mode))
+        fixed = float(costing.fixed_per_day(mode))
+        per_km = float(costing.per_km(mode))
         out[mode] = {}
         for plan in plans:
             sub = trips[trips["plan"] == plan]
-            # 成本一律走 config 的成本模型（`daily_total_cost`），不在这里另写一份
+            # 成本一律走 costing 的成本模型（`daily_total`），不在这里另写一份
             # 「固定 + 里程×变动」——口径只允许有一个实现
-            day_total = float(C.daily_total_cost(mode, sub["distance_km"]).sum())
+            day_total = float(costing.daily_total(mode, sub["distance_km"]).sum())
             n_orders = int(sub["n_orders"].sum())
             out[mode][plan] = {
                 "day_total": round(day_total, 2),
@@ -336,91 +337,6 @@ def mode_cost_before_after(trips: pd.DataFrame, n_vehicles_by_plan: dict | None 
     }
 
 
-def outsource_comparison(trips: pd.DataFrame) -> dict:
-    """自营单趟成本 vs 货拉拉外包报价，按**该趟自己的**里程与点数逐趟对照（需求 22/42）。
-
-    用每趟真实里程/点数而不是固定行程画像，是「叠加优化后」的正确做法：优化把每趟里程
-    压短了，自营单趟成本随之下降，外包的相对吸引力因此变化——固定画像（06 号票口径）
-    看不到这一点，因为它把里程钉死。
-
-    自营成本给出柴油/纯电两列并取较省者作 `self_cost`，`self_best_mode` 记录省的是哪种；
-    这个 min 隐含「车队可按线路自由选模式」，是**自营竞争力的上界**，报告里已注明。
-    """
-    if trips.empty:
-        raise ValueError("trips 为空，无法做外包对照")
-    df = trips.copy()
-    for mode in ("diesel", "ev"):
-        df[f"self_{mode}_cost"] = C.daily_total_cost(mode, df["distance_km"])
-    df["self_cost"] = df[["self_diesel_cost", "self_ev_cost"]].min(axis=1)
-    # 模式选择走 `_cheaper_mode` 这一个口径，不在此另写一遍 np.where 版的同一规则
-    df["self_best_mode"] = [
-        _cheaper_mode(d, e) for d, e in zip(df["self_diesel_cost"], df["self_ev_cost"])
-    ]
-    df["huolala_cost"] = [
-        GD.huolala_cost(float(km), int(stops))
-        for km, stops in zip(df["distance_km"], df["n_stops"])
-    ]
-    df["delta_pct_vs_huolala"] = (df["self_cost"] - df["huolala_cost"]) / df["huolala_cost"] * 100
-    band = C.HUOLALA_TIE_BAND
-    df["verdict"] = [
-        "自营更省" if s < h * band else ("外包更省" if h < s * band else "基本持平")
-        for s, h in zip(df["self_cost"], df["huolala_cost"])
-    ]
-    keep = ["trip_id", "plan", "n_stops", "n_orders", "distance_km", "self_diesel_cost",
-            "self_ev_cost", "self_cost", "self_best_mode", "huolala_cost",
-            "delta_pct_vs_huolala", "verdict"]
-    out = df[keep].reset_index(drop=True)
-
-    by_plan: dict[str, dict] = {}
-    for plan, sub in out.groupby("plan"):
-        n = len(sub)
-        cheap = int((sub["verdict"] == "自营更省").sum())
-        out_cheap = int((sub["verdict"] == "外包更省").sum())
-        by_plan[str(plan)] = {
-            "n_trips": int(n),
-            "total_self_cost": round(float(sub["self_cost"].sum()), 2),
-            "total_self_diesel_cost": round(float(sub["self_diesel_cost"].sum()), 2),
-            "total_self_ev_cost": round(float(sub["self_ev_cost"].sum()), 2),
-            "total_huolala_cost": round(float(sub["huolala_cost"].sum()), 2),
-            "n_trips_self_cheaper": cheap,
-            "n_trips_outsource_cheaper": out_cheap,
-            "n_trips_tie": int(n - cheap - out_cheap),
-            "best_mode": _cheaper_mode(
-                float(sub["self_diesel_cost"].sum()), float(sub["self_ev_cost"].sum())
-            ),
-        }
-        tot_h = by_plan[str(plan)]["total_huolala_cost"]
-        by_plan[str(plan)]["delta_pct_vs_huolala"] = round(
-            (by_plan[str(plan)]["total_self_cost"] - tot_h) / tot_h * 100, 2
-        ) if tot_h else None
-
-    primary = "optimized" if "optimized" in by_plan else sorted(by_plan)[0]
-    return {
-        "basis": C.TRANSPORT_OUTSOURCE_BASIS,
-        "primary_plan": primary,
-        "per_trip": out,
-        "by_plan": by_plan,
-        "total_self_cost": by_plan[primary]["total_self_cost"],
-        "total_huolala_cost": by_plan[primary]["total_huolala_cost"],
-        "n_trips_self_cheaper": by_plan[primary]["n_trips_self_cheaper"],
-        "n_trips_outsource_cheaper": by_plan[primary]["n_trips_outsource_cheaper"],
-        "n_trips_tie": by_plan[primary]["n_trips_tie"],
-    }
-
-
-def _cheaper_mode(diesel_total: float, ev_total: float) -> str:
-    return "ev" if ev_total <= diesel_total else "diesel"
-
-
-def sensitivity_table(reference_km: float) -> dict:
-    """三档敏感性（司机工资 / 能源价格 / 租金），one-at-a-time 变一个、其余留 mid。
-
-    直接复用数据层 D 的成本模型（`gen_delivery_data.build_tco_analysis`），
-    不在此另写一份——成本模型只允许有一个实现。
-    """
-    return GD.build_tco_analysis(reference_km)["sensitivity"]
-
-
 def build_transport_tco(trips: pd.DataFrame, n_vehicles_by_plan: dict | None = None) -> dict:
     """运输侧 TCO 决策分析汇总（需求 22/42）。
 
@@ -428,11 +344,11 @@ def build_transport_tco(trips: pd.DataFrame, n_vehicles_by_plan: dict | None = N
     三档敏感性应当以新的里程水平来评估，否则敏感性还在描述一个已经不存在的车队。
     """
     mode_costs = mode_cost_before_after(trips, n_vehicles_by_plan)
-    outs = outsource_comparison(trips)
+    outs = costing.outsource_comparison(trips)
     ref_km = float(trips.loc[trips["plan"] == outs["primary_plan"], "distance_km"].mean())
-    base = GD.build_tco_analysis(ref_km)
-    breakeven = float(C.breakeven_km())
-    recommended = _cheaper_mode(
+    base = costing.tco_analysis(ref_km)
+    breakeven = float(costing.breakeven_km())
+    recommended = costing.cheaper_mode(
         mode_costs["diesel"][outs["primary_plan"]]["day_total"],
         mode_costs["ev"][outs["primary_plan"]]["day_total"],
     )

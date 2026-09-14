@@ -391,82 +391,13 @@ TRANSPORT_OUTSOURCE_BASIS: str = (
 AMAP_RETRY_BACKOFF_SEC: tuple[int, ...] = (1, 2, 4)  # 指数退避，至多 3 次
 
 
-def cost_fixed_per_day(
-    mode: str,
-    *,
-    driver_wage: str = "mid",
-    rent: str = "mid",
-) -> float:
-    """返回某自营模式在给定敏感性档位下的日固定成本（元/工作日）。
+# ---------------------------------------------------------------------------
+# 本模块只声明数值，不定义模型。
+#
+# 车队成本模型（日固定成本 / 公里变动成本 / 日总成本 / 盈亏平衡里程 / 货拉拉计价 /
+# TCO 分析 / 自营 vs 外包对照）住在 `src/costing.py`——它读的就是上面这些常量。
+# 之所以分开：`config` 是「唯一魔法数来源」，而成本模型是**行为**。混在一个文件里会让
+# 「改一个参数」与「改一条公式」看起来是同一件事，也让「成本模型住哪」这个问题没有答案
+# （收口前它散在本文件、gen_delivery_data 与 transport_decisions 三处）。
+# ---------------------------------------------------------------------------
 
-    mode: "diesel"（柴油自购）或 "ev"（纯电租赁）
-    driver_wage: 司机工资档位 low/mid/high
-    rent: 租金档位 low/mid/high（仅 ev 用；diesel 无租金，忽略）
-
-    柴油日固定 = 折旧 + 保险 + 司机工资
-    纯电日固定 = 租金 + 司机工资
-
-    三个敏感性参数各档独立传入，支持 one-at-a-time 分析（变一个、其余留 mid）。
-    """
-    wage = DRIVER_WAGE_PER_DAY[driver_wage]
-    if mode == "diesel":
-        return DIESEL_FIXED_EX_WAGE + wage
-    if mode == "ev":
-        return EV_RENT_PER_DAY[rent] + wage
-    raise ValueError(f"未知模式: {mode}（应为 'diesel' 或 'ev'）")
-
-
-def cost_per_km(mode: str, *, energy_price: str = "mid") -> float:
-    """返回某自营模式在给定能源价格档位下的公里变动成本（元/km）。
-
-    柴油 = 燃油 + 尿素 + 维保；纯电 = 电费。
-    energy_price: 能源价格档位 low/mid/high（柴油作用于油价、纯电作用于电价）。
-    """
-    if mode == "diesel":
-        return DIESEL_FUEL_PER_KM[energy_price] + DIESEL_UREA_PER_KM + DIESEL_MAINTENANCE_PER_KM
-    if mode == "ev":
-        return EV_ELEC_PER_KM[energy_price]
-    raise ValueError(f"未知模式: {mode}（应为 'diesel' 或 'ev'）")
-
-
-def daily_total_cost(
-    mode: str,
-    daily_km: float,
-    *,
-    driver_wage: str = "mid",
-    energy_price: str = "mid",
-    rent: str = "mid",
-) -> float:
-    """日总成本 = 日固定成本 + 日行驶里程 × 公里变动成本（元）。
-
-    用于绘制「日行驶里程—日总成本」曲线与求盈亏平衡里程（ADR-0009）。
-    三个敏感性档位独立透传，支持 one-at-a-time 分析。
-    """
-    fixed = cost_fixed_per_day(mode, driver_wage=driver_wage, rent=rent)
-    var = cost_per_km(mode, energy_price=energy_price)
-    return fixed + daily_km * var
-
-
-def breakeven_km(
-    *,
-    driver_wage: str = "mid",
-    energy_price: str = "mid",
-    rent: str = "mid",
-) -> float:
-    """柴油自购 vs 纯电租赁的盈亏平衡日里程（km）。
-
-    令两模式日总成本相等求解里程：
-    (固定_ev − 固定_diesel) / (变动_diesel − 变动_ev)
-    低于此里程柴油更省，高于此里程纯电更省（因纯电公里变动成本低）。
-    注：司机工资对两模式同额，相减抵消，不影响盈亏平衡里程；
-    租金（ev 固定）与能源价格（两模式变动）影响结果。
-    """
-    fixed_diff = cost_fixed_per_day("ev", driver_wage=driver_wage, rent=rent) - cost_fixed_per_day(
-        "diesel", driver_wage=driver_wage
-    )
-    var_diff = cost_per_km("diesel", energy_price=energy_price) - cost_per_km(
-        "ev", energy_price=energy_price
-    )
-    if var_diff == 0:
-        raise ZeroDivisionError("两模式公里变动成本相等，无盈亏平衡点")
-    return fixed_diff / var_diff

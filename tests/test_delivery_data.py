@@ -17,6 +17,7 @@ import pandas as pd
 import pytest
 
 from src import config as C
+from src import costing
 from src import gen_delivery_data as DD
 
 
@@ -195,8 +196,8 @@ class TestFleet:
         assert (fleet["rated_volume_m3"] == C.RATED_VOLUME_M3).all()
         for mode in ("diesel", "ev"):
             sub = fleet[fleet["mode"] == mode]
-            assert (sub["fixed_cost_per_day"] == C.cost_fixed_per_day(mode)).all()
-            assert (sub["cost_per_km"] == C.cost_per_km(mode)).all()
+            assert (sub["fixed_cost_per_day"] == costing.fixed_per_day(mode)).all()
+            assert (sub["cost_per_km"] == costing.per_km(mode)).all()
 
     def test_mode_mix_matches_config(self):
         fleet = DD.build_fleet()
@@ -222,102 +223,6 @@ class TestLoadRate:
         assert DD.exceeds_capacity(1400.1, 1.0, 1400.0, 18.0) is True
         assert DD.exceeds_capacity(1.0, 18.1, 1400.0, 18.0) is True
         assert DD.exceeds_capacity(1400.0, 18.0, 1400.0, 18.0) is False
-
-
-class TestHuolalaCost:
-    """货拉拉外包对标计价（需求 21/22；参数读 config，台账登记为情景假设）。"""
-
-    def test_short_trip_is_just_the_start_fee(self):
-        # 起步 90 元含前 5km，8 点以内无超点费
-        assert DD.huolala_cost(5.0, 8) == pytest.approx(C.HUOLALA_START_FEE)
-
-    def test_medium_trip_charges_first_band(self):
-        # 25km / 8 点 = 90 + (25-5)×5 = 190
-        assert DD.huolala_cost(25.0, 8) == pytest.approx(190.0)
-
-    def test_long_trip_adds_second_band_and_extra_stops(self):
-        # 60km / 12 点 = 90 + 20×5 + 35×avg(3.5,4.8) + 4×38
-        expected = 90.0 + 20 * 5.0 + 35 * 4.15 + 4 * 38.0
-        assert DD.huolala_cost(60.0, 12) == pytest.approx(expected)
-
-
-class TestTcoAnalysis:
-    """双模式 TCO 曲线、盈亏平衡里程、三档敏感性、外包对照与建议（需求 21/22）。"""
-
-    def test_curve_is_fixed_plus_mileage_times_variable(self):
-        tco = DD.build_tco_analysis()
-        for mode in ("diesel", "ev"):
-            c = tco["curves"][mode]
-            for km, cost in zip(c["mileage_km"], c["daily_total_cost"]):
-                assert cost == pytest.approx(c["daily_fixed"] + km * c["per_km"], abs=0.01)
-
-    def test_curve_covers_configured_mileage_grid(self):
-        tco = DD.build_tco_analysis()
-        assert tuple(tco["curves"]["diesel"]["mileage_km"]) == C.TCO_MILEAGE_GRID_KM
-
-    def test_breakeven_matches_config_formula(self):
-        tco = DD.build_tco_analysis()
-        assert tco["breakeven_km"]["km"] == pytest.approx(C.breakeven_km(), abs=0.01)
-
-    def test_breakeven_really_is_the_cost_crossover(self):
-        # 报告的盈亏平衡里程必须真的是两条成本曲线的交点（自洽性）
-        tco = DD.build_tco_analysis()
-        be = tco["breakeven_km"]["km"]
-        d, e = tco["curves"]["diesel"], tco["curves"]["ev"]
-        at = lambda c, km: c["daily_fixed"] + km * c["per_km"]
-        assert at(e, be + 20) < at(d, be + 20)  # 高于盈亏平衡：纯电更省
-        assert at(d, be - 20) < at(e, be - 20)  # 低于盈亏平衡：柴油更省
-
-    def test_sensitivity_covers_three_params_three_levels(self):
-        tco = DD.build_tco_analysis()
-        for param in C.SENSITIVITY_PARAMS:
-            assert set(tco["sensitivity"][param]) == set(C.SENSITIVITY_LEVELS)
-            for rec in tco["sensitivity"][param].values():
-                assert rec["diesel_daily_cost"] > 0 and rec["ev_daily_cost"] > 0
-                assert np.isfinite(rec["breakeven_km"])
-
-    def test_sensitivity_moves_costs_in_the_right_direction(self):
-        tco = DD.build_tco_analysis()
-        s = tco["sensitivity"]
-        lo, hi = C.SENSITIVITY_LEVELS[0], C.SENSITIVITY_LEVELS[-1]
-        # 工资 / 能源 / 租金上涨都会推高纯电日总成本
-        for param in C.SENSITIVITY_PARAMS:
-            assert s[param][lo]["ev_daily_cost"] < s[param][hi]["ev_daily_cost"]
-        # 工资与能源上涨推高柴油日总成本（租金不进柴油成本）
-        for param in ("driver_wage", "energy_price"):
-            assert s[param][lo]["diesel_daily_cost"] < s[param][hi]["diesel_daily_cost"]
-        # 租金只进纯电固定成本，上涨必然推高盈亏平衡里程
-        rent_be = [s["rent"][lv]["breakeven_km"] for lv in C.SENSITIVITY_LEVELS]
-        assert rent_be[0] < rent_be[1] < rent_be[2]
-
-    def test_driver_wage_leaves_breakeven_unchanged(self):
-        # 司机工资对两模式同额、相减抵消（config.breakeven_km 的性质），敏感性表须如实反映
-        tco = DD.build_tco_analysis()
-        be = [tco["sensitivity"]["driver_wage"][lv]["breakeven_km"] for lv in C.SENSITIVITY_LEVELS]
-        assert be[0] == pytest.approx(be[1]) == pytest.approx(be[2])
-        # 工资却实实在在推高两模式的日总成本
-        costs = [tco["sensitivity"]["driver_wage"][lv]["diesel_daily_cost"] for lv in C.SENSITIVITY_LEVELS]
-        assert costs[0] < costs[1] < costs[2]
-
-    def test_comparison_table_has_a_verdict_per_profile(self):
-        tco = DD.build_tco_analysis()
-        for r in tco["huolala_comparison"]:
-            assert r["verdict"] in {"自营更省", "外包更省", "基本持平"}
-            assert r["huolala_cost"] > 0 and r["self_diesel_cost"] > 0 and r["self_ev_cost"] > 0
-
-    def test_comparison_table_discriminates(self):
-        # 对照表必须能区分两种结论，否则没有决策价值
-        tco = DD.build_tco_analysis()
-        verdicts = {r["verdict"] for r in tco["huolala_comparison"]}
-        assert len(verdicts) >= 2
-        assert {r["verdict"] for r in tco["huolala_comparison"]} <= {"自营更省", "外包更省", "基本持平"}
-
-    def test_recommendation_cites_numbers_from_its_own_output(self):
-        tco = DD.build_tco_analysis()
-        rec = tco["recommendation"]
-        assert rec["recommended_mode"] in {"ev", "diesel"}
-        assert rec["breakeven_km"] == pytest.approx(tco["breakeven_km"]["km"], abs=0.01)
-        assert rec["rationale"]
 
 
 class TestAnomalyModel:
@@ -627,7 +532,7 @@ class TestDataProducts:
         fleet = pd.read_csv(scenario["paths"]["vehicles"])
         assert len(fleet) == C.FLEET_SIZE
         tco = scenario["tco"]
-        assert tco["breakeven_km"]["km"] == pytest.approx(C.breakeven_km(), abs=0.01)
+        assert tco["breakeven_km"]["km"] == pytest.approx(costing.breakeven_km(), abs=0.01)
         assert tco["recommendation"]["rationale"]
 
     def test_vehicle_share_weights_sum_to_one(self):

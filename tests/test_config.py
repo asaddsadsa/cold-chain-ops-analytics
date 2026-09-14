@@ -1,7 +1,8 @@
 """config 模块回归测试。
 
-测试缝：spec「成本模型缝」——TCO 派生函数是纯函数，对手工算例断言。
-只测外部行为（输入→输出数值 / 常量约定），不测实现细节。
+config 只声明数值、不定义模型（成本模型住在 `src/costing.py`，其测试在
+`tests/test_costing.py`）。这里测的是**常量约定**：种子唯一、路径相对化、
+档位单调、门禁阈值取值。
 """
 
 import pytest
@@ -38,73 +39,16 @@ class TestABCThresholds:
         assert C.ABC_THRESHOLDS == (0.70, 0.90)
 
 
-class TestCostModel:
-    """TCO 成本派生纯函数。中位锚点对齐 data_sources_ledger.md 第 4 节。
+class TestSensitivityLevels:
+    """三档敏感性锚点的**单调性**。
 
-    三个敏感性参数（司机工资/能源价格/租金）各档独立传入，
-    支持 one-at-a-time 分析（变一个、其余留 mid）。
+    成本派生函数（日固定 / 公里变动 / 日总成本 / 盈亏平衡里程）已搬到 `src/costing.py`，
+    它们的回归测试在 `tests/test_costing.py`。留在这里的只是**常量本身**的不变量——
+    档位必须递增，否则敏感性分析的方向会反。
     """
 
-    def test_diesel_fixed_mid(self):
-        # 柴油日固定 = 折旧62 + 保险22 + 工资269 = 353
-        assert C.cost_fixed_per_day("diesel") == pytest.approx(353.0)
-
-    def test_ev_fixed_mid(self):
-        # 纯电日固定 = 租金115 + 工资269 = 384
-        # 注：台账「≈385」为月除未取整(3000/26=115.4, 7000/26=269.2→384.6)；
-        # config 忠实于文档显式的每日锚点 115+269=384。
-        assert C.cost_fixed_per_day("ev") == pytest.approx(384.0)
-
-    def test_diesel_per_km_mid(self):
-        # 柴油公里变动 = 燃油0.96 + 尿素0.05 + 维保0.10 = 1.11
-        assert C.cost_per_km("diesel") == pytest.approx(1.11)
-
-    def test_ev_per_km_mid(self):
-        assert C.cost_per_km("ev") == pytest.approx(0.44)
-
-    def test_daily_total_cost_formula(self):
-        # 日总成本 = 日固定 + 里程 × 公里变动
-        km = 120.0
-        expected = C.cost_fixed_per_day("diesel") + km * C.cost_per_km("diesel")
-        assert C.daily_total_cost("diesel", km) == pytest.approx(expected)
-
-    def test_unknown_mode_raises(self):
-        with pytest.raises(ValueError):
-            C.cost_fixed_per_day("hybrid")
-        with pytest.raises(ValueError):
-            C.cost_per_km("hybrid")
-
-    def test_one_at_a_time_sensitivity(self):
-        # 单变一个参数、其余留 mid：三个敏感性参数各自独立生效
-        base = C.daily_total_cost("diesel", 100.0)
-        # 仅调高司机工资 → 固定成本上升，变动不变
-        assert C.daily_total_cost("diesel", 100.0, driver_wage="high") > base
-        # 仅调高油价 → 变动成本上升
-        assert C.daily_total_cost("diesel", 100.0, energy_price="high") > base
-        # 仅调高租金对 diesel 无影响（柴油无租金）
-        assert C.daily_total_cost("diesel", 100.0, rent="high") == pytest.approx(base)
-        # 租金对 ev 有影响
-        assert C.daily_total_cost("ev", 100.0, rent="high") > C.daily_total_cost("ev", 100.0)
-
-    def test_breakeven_diesel_cheaper_below(self):
-        # 纯电日固定更高、公里变动更低 → 存在唯一盈亏平衡里程；
-        # 低于该里程柴油更省，高于该里程纯电更省。
-        be = C.breakeven_km()
-        assert be > 0
-        assert C.daily_total_cost("ev", be * 2) < C.daily_total_cost("diesel", be * 2)
-        assert C.daily_total_cost("ev", be / 2) > C.daily_total_cost("diesel", be / 2)
-
-    def test_breakeven_is_intersection(self):
-        # 盈亏平衡点处两模式日总成本相等
-        be = C.breakeven_km()
-        assert C.daily_total_cost("ev", be) == pytest.approx(C.daily_total_cost("diesel", be), rel=1e-6)
-
-    def test_breakeven_independent_of_driver_wage(self):
-        # 司机工资对两模式同额，相减抵消 → 盈亏平衡里程不受工资档位影响
-        assert C.breakeven_km(driver_wage="low") == pytest.approx(C.breakeven_km(driver_wage="high"))
-
-    def test_sensitivity_three_levels_ordered(self):
-        # 三档敏感性：low < mid < high（工资、电价、租金均单调）
+    def test_three_levels_ordered(self):
+        # low < mid < high（工资、电价、租金均单调）
         for d in (C.DRIVER_WAGE_PER_DAY, C.EV_ELEC_PER_KM, C.EV_RENT_PER_DAY):
             assert d["low"] < d["mid"] < d["high"]
 

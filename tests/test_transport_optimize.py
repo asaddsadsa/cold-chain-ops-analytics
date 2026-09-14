@@ -17,6 +17,7 @@ import pandas as pd
 import pytest
 
 from src import config as C
+from src import costing
 from src import transport_optimize as TO
 
 # --- 手工小矩阵：DC + 3 个节点 -------------------------------------------------
@@ -279,7 +280,7 @@ class TestLoadAndMileage:
 
     def test_total_cost_is_fixed_plus_mileage_per_trip(self, routes):
         got = TO.total_cost(routes, "diesel")
-        per_km, fixed = C.cost_per_km("diesel"), C.cost_fixed_per_day("diesel")
+        per_km, fixed = costing.per_km("diesel"), costing.fixed_per_day("diesel")
         assert got == pytest.approx(2 * fixed + 95 * per_km)
 
     def test_ev_costs_less_per_km_than_diesel(self, routes):

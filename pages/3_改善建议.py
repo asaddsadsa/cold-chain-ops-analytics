@@ -31,6 +31,7 @@ import streamlit as st
 st.set_page_config(page_title="改善建议 · 区域仓配中心", page_icon="🛠️", layout="wide")
 
 from src import config as C  # noqa: E402
+from src import costing  # noqa: E402
 from src import warehouse_kpi as WK  # noqa: E402
 from src.dashboard import charts as CH  # noqa: E402
 from src.dashboard import components as UI  # noqa: E402
@@ -589,27 +590,27 @@ _kw = _tco_kwargs(_param_key, _level)           # one-at-a-time
 _curve = tco["curves"][_mode_key]
 _mileage = _curve["mileage_km"]
 _ref_km = float(tco["reference_daily_km"])
-_be_km = float(C.breakeven_km(**_kw))
-_cost_curve = [float(C.daily_total_cost(_mode_key, km, **_kw)) for km in _mileage]
-_ref_cost = float(C.daily_total_cost(_mode_key, _ref_km, **_kw))
+_be_km = float(costing.breakeven_km(**_kw))
+_cost_curve = [float(costing.daily_total(_mode_key, km, **_kw)) for km in _mileage]
+_ref_cost = float(costing.daily_total(_mode_key, _ref_km, **_kw))
 
 UI.kpi_cards([
     kpis.Metric(key="tco_fixed", label=f"日固定成本（{_mode_label}）",
-                value=float(C.cost_fixed_per_day(
+                value=float(costing.fixed_per_day(
                     _mode_key, driver_wage=_kw["driver_wage"], rent=_kw["rent"])),
                 previous=None, unit="元/日", higher_is_better=False,
-                basis=f"config.cost_fixed_per_day（司机工资={_LEVEL_LABELS[_kw['driver_wage']]}、"
+                basis=f"costing.fixed_per_day（司机工资={_LEVEL_LABELS[_kw['driver_wage']]}、"
                       f"租金={_LEVEL_LABELS[_kw['rent']]}）"),
     kpis.Metric(key="tco_perkm", label=f"公里变动成本（{_mode_label}）",
-                value=float(C.cost_per_km(_mode_key, energy_price=_kw["energy_price"])),
+                value=float(costing.per_km(_mode_key, energy_price=_kw["energy_price"])),
                 previous=None, unit="元/km", higher_is_better=False, decimals=3,
-                basis=f"config.cost_per_km（能源价格={_LEVEL_LABELS[_kw['energy_price']]}）"),
+                basis=f"costing.per_km（能源价格={_LEVEL_LABELS[_kw['energy_price']]}）"),
     kpis.Metric(key="tco_ref", label="参考里程处日成本",
                 value=_ref_cost, previous=None, unit="元/日", higher_is_better=False,
-                basis=f"config.daily_total_cost @ 参考里程 {_ref_km:.1f} km（tco.reference_daily_km）"),
+                basis=f"costing.daily_total @ 参考里程 {_ref_km:.1f} km（tco.reference_daily_km）"),
     kpis.Metric(key="tco_be", label="盈亏平衡里程",
                 value=_be_km, previous=None, unit="km/日", higher_is_better=True,
-                basis="config.breakeven_km（柴油自购 = 纯电租赁 日总成本相等点）"),
+                basis="costing.breakeven_km（柴油自购 = 纯电租赁 日总成本相等点）"),
 ])
 
 UI.chart_block(
@@ -618,7 +619,7 @@ UI.chart_block(
     caption=(
         f"{_mode_label} 在当前敏感性设置（{_PARAM_LABELS[_param_key]} = {_LEVEL_LABELS[_level]}，"
         f"其余参数留 mid）下的日总成本随单车日行驶里程的曲线。参考线为盈亏平衡里程 "
-        f"{_be_km:.2f} km/日（该点两模式日成本相等，取自 `config.breakeven_km`）；"
+        f"{_be_km:.2f} km/日（该点两模式日成本相等，取自 `costing.breakeven_km`）；"
         f"标记点为参考里程 {_ref_km:.2f} km 处的成本 {_ref_cost:,.2f} 元/日。"
         f"曲线与标注随「动力模式 / 敏感性参数 / 档位」三个控件即时重算。"
         "该图无日期/品类/片区维度，不受全局筛选影响。"
@@ -655,7 +656,7 @@ UI.chart_block(
         "两条序列同量纲，共用一根轴并配图例；柴油永远槽 0、纯电永远槽 1，不随控件重排颜色。"
         "该表直接读 `transport_tco.json → sensitivity`，与上方曲线是同一口径的两个切面。"
         + ("注意：司机工资对两模式同额、相减抵消，**不影响盈亏平衡里程**——"
-           "三档的平衡里程因此相同（`config.breakeven_km` 已注明）。"
+           "三档的平衡里程因此相同（`costing.breakeven_km` 已注明）。"
            if _param_key == "driver_wage" else "")
     ),
     table=_sens_tbl,
