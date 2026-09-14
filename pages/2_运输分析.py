@@ -98,8 +98,8 @@ def _delta_note(change_pct: float, *, lower_is_better: bool) -> str:
             f" = {'改善' if good else '变差'}）")
 
 
-def _compare_bars(baseline: float, optimized: float, *, unit: str, decimals: int,
-                  change_pct: float, lower_is_better: bool) -> go.Figure:
+def _compare_bars(baseline: float, optimized: float, *, unit: str,
+                  decimals: int) -> go.Figure:
     """同一指标「优化前 / 优化后」两根柱。
 
     两根柱是**两个实体**（两个方案），按 PLAN_SLOT 固定上色；x 轴标签已经写明身份，
@@ -122,7 +122,7 @@ def _compare_bars(baseline: float, optimized: float, *, unit: str, decimals: int
 
 
 def _grouped_compare(categories, baseline_vals, optimized_vals, *, unit: str,
-                     decimals: int = 2, change_pcts=None) -> go.Figure:
+                     decimals: int = 2) -> go.Figure:
     """多指标两方案分组柱：同量纲放在一张图（本页只在「比率 (%)」里用到，全为百分数）。"""
     fig = go.Figure()
     fig.add_bar(x=list(categories), y=list(baseline_vals), name=PLAN_LABEL["baseline"],
@@ -137,21 +137,6 @@ def _grouped_compare(categories, baseline_vals, optimized_vals, *, unit: str,
                 hovertemplate=f"优化后 · %{{x}}<br>%{{y:,.{decimals}f}}{unit}<extra></extra>")
     fig.update_layout(barmode="group", showlegend=True, bargap=0.3, bargroupgap=0.08,
                       yaxis={"title": unit}, xaxis={"title": ""})
-    return fig
-
-
-def _multi_line(x, series: dict, slots: dict, *, y_title: str, unit: str = "") -> go.Figure:
-    """多序列折线（同量纲、一根轴）。
-
-    复用 `charts.dual_line_chart` 后**按实体固定槽位重上色**：构造器从槽 0 起顺序取色，而本页
-    槽 0/1 已固定给「优化前/后」、2/3 给两种动力模式；不重上色的话，同一页会出现
-    「蓝 = 优化前」与「蓝 = 周度某序列」两种读法，正是配色规范要禁止的漂移。
-    """
-    fig = CH.dual_line_chart(x, series, y_title=y_title, unit=unit)
-    for i, name in enumerate(series):
-        c = theme.series(slots[name])
-        fig.data[i].line.color = c
-        fig.data[i].marker.color = c
     return fig
 
 
@@ -315,8 +300,7 @@ _c0, _c1 = st.columns(2)
 with _c0:
     _r = _cmp_row("总里程")
     UI.chart_block(
-        _compare_bars(float(_r["baseline"]), float(_r["optimized"]), unit="km", decimals=2,
-                      change_pct=float(_r["change_pct"]), lower_is_better=True),
+        _compare_bars(float(_r["baseline"]), float(_r["optimized"]), unit="km", decimals=2),
         caption=f"总里程：{_delta_note(float(_r['change_pct']), lower_is_better=True)}",
         table=_rows_table("总里程 (km)", _r), table_label="总里程数据表",
     )
@@ -324,8 +308,7 @@ with _c1:
     _r = _cmp_row("用车数")
     _trips_by_plan = D.artifact("transport_trips").groupby("plan").size().to_dict()
     UI.chart_block(
-        _compare_bars(float(_r["baseline"]), float(_r["optimized"]), unit="台", decimals=0,
-                      change_pct=float(_r["change_pct"]), lower_is_better=True),
+        _compare_bars(float(_r["baseline"]), float(_r["optimized"]), unit="台", decimals=0),
         caption=f"用车数：{_delta_note(float(_r['change_pct']), lower_is_better=True)}"
                 f"（用车数 = 趟次数：优化前 {_trips_by_plan.get('baseline', 0)} 趟对应 "
                 f"{float(_r['baseline']):.0f} 台、优化后 {_trips_by_plan.get('optimized', 0)} 趟对应 "
@@ -338,8 +321,7 @@ _c2, _c3 = st.columns(2)
 with _c2:
     _r = _cmp_row(MODE_PREFIX[f.cost_mode] + "总成本")
     UI.chart_block(
-        _compare_bars(float(_r["baseline"]), float(_r["optimized"]), unit="元", decimals=2,
-                      change_pct=float(_r["change_pct"]), lower_is_better=True),
+        _compare_bars(float(_r["baseline"]), float(_r["optimized"]), unit="元", decimals=2),
         caption=f"代表日总成本（{_mode_lbl}，由侧边栏成本口径决定）："
                 f"{_delta_note(float(_r['change_pct']), lower_is_better=True)}",
         table=_rows_table(f"{_mode_lbl}总成本 (元)", _r), table_label="总成本数据表",
@@ -347,8 +329,7 @@ with _c2:
 with _c3:
     _r = _cmp_row(MODE_PREFIX[f.cost_mode] + "单均成本")
     UI.chart_block(
-        _compare_bars(float(_r["baseline"]), float(_r["optimized"]), unit="元/单", decimals=2,
-                      change_pct=float(_r["change_pct"]), lower_is_better=True),
+        _compare_bars(float(_r["baseline"]), float(_r["optimized"]), unit="元/单", decimals=2),
         caption=f"代表日单均成本（{_mode_lbl}）："
                 f"{_delta_note(float(_r['change_pct']), lower_is_better=True)}",
         table=_rows_table(f"{_mode_lbl}单均成本 (元/单)", _r), table_label="单均成本数据表",
@@ -499,8 +480,8 @@ else:
         _wk_c0, _wk_c1 = st.columns([3, 2])
         with _wk_c0:
             UI.chart_block(
-                _multi_line(_wk["week"], _wk_series, _wk_slots,
-                            y_title="比率 (%)", unit="%"),
+                CH.dual_line_chart(_wk["week"], _wk_series, slots=_wk_slots,
+                                   y_title="比率 (%)", unit="%"),
                 caption=(
                     f"四条序列同量纲（%）、共用一根轴。区间内共 {len(_wk)} 周（按各周起止与所选"
                     "日期窗口重叠截取）。两个埋点：**周五**「晚点」率高于其他工作日（午后拥堵叠加"
@@ -558,8 +539,8 @@ _tco_series = {
     "纯电租赁": _curves["ev"]["daily_total_cost"],
 }
 _tco_slots = {"柴油自购": MODE_SLOT["diesel"], "纯电租赁": MODE_SLOT["ev"]}
-_tco_fig = _multi_line(_curves["diesel"]["mileage_km"], _tco_series, _tco_slots,
-                       y_title="日总成本 (元/日)", unit=" 元")
+_tco_fig = CH.dual_line_chart(_curves["diesel"]["mileage_km"], _tco_series, slots=_tco_slots,
+                              y_title="日总成本 (元/日)", unit=" 元")
 _tco_fig.add_vline(
     x=float(_be["km"]), line_width=2, line_color=theme.tokens()["secondary_ink"],
     annotation_text=f"盈亏平衡里程 {float(_be['km']):,.2f} km",

@@ -133,27 +133,6 @@ def metric_trend(
     return fig
 
 
-def grouped_bar(labels, values, *, label: str, unit: str, slot: int = 0,
-                decimals: int = 2) -> go.Figure:
-    """单序列柱状图：所有柱同一个颜色。**按值深浅上色是错的**——那是把柱高这一条信息
-    在色相上再编码一遍，白白烧掉唯一的自由通道。"""
-    t = theme.tokens()
-    color = theme.series(slot)
-    fig = go.Figure(
-        go.Bar(
-            x=list(labels), y=list(values), name=label,
-            marker={"color": color, "line": {"width": 0}},
-            hovertemplate="%{x}<br>" + label + " %{y:." + str(decimals) + "f}" + unit
-            + "<extra></extra>",
-        )
-    )
-    fig.update_layout(
-        showlegend=False, bargap=0.28,
-        yaxis={"title": unit}, xaxis={"title": ""},
-    )
-    return fig
-
-
 # ---------------------------------------------------------------------------
 # 异常预警清单
 # ---------------------------------------------------------------------------

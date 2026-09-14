@@ -46,7 +46,6 @@ class Filters:
     categories: tuple[str, ...] = ()
     regions: tuple[str, ...] = ()
     cost_mode: str = "ev"
-    label: str = ""
 
     @property
     def categories_label(self) -> str:
@@ -57,13 +56,13 @@ class Filters:
         return "全部片区" if not self.regions else "、".join(self.regions)
 
     def describe(self) -> str:
-        """一行摘要：当前区间 + 品类 + 片区。`label` 未显式给定时由它派生。"""
+        """一行摘要：当前区间 + 品类 + 片区。"""
         return (f"{self.window.start.date()} ~ {self.window.end.date()}（{self.window.days} 天）"
                 f" ｜ {self.categories_label} ｜ {self.regions_label}")
 
     def scope_note(self, applied: str) -> str:
         """本页实际吃哪些筛选器。`applied` 形如 "日期范围、配送区域"。"""
-        return f"本页生效的筛选器：**{applied}** ｜ 当前：{self.label or self.describe()}"
+        return f"本页生效的筛选器：**{applied}** ｜ 当前：{self.describe()}"
 
 
 def _preset_window(last_day: pd.Timestamp, preset: str, custom: tuple) -> Window:
@@ -127,14 +126,12 @@ def sidebar() -> Filters:
     if st.sidebar.button("刷新产物读数", help="脚本重跑出新产物后点此重读；不必重启看板"):
         D.refresh()
 
-    f = Filters(
+    return Filters(
         window=window,
         categories=categories,
         regions=tuple(regions),
         cost_mode=cost_mode,
     )
-    st.session_state["filters"] = f
-    return f
 
 
 def apply_regions(df: pd.DataFrame, f: Filters, col: str = "region") -> pd.DataFrame:

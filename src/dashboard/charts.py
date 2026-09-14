@@ -185,16 +185,24 @@ def gauge(value: float, *, title: str, unit: str = "%", vmin: float = 0.0,
 
 
 def dual_line_chart(x, series: dict, *, y_title: str, unit: str = "",
+                    slots: dict[str, int] | None = None,
                     height: int = 320) -> go.Figure:
     """多序列折线（**同量纲、共用一根轴**）。≥2 序列时必须有图例。
 
     量纲不同的曲线不要往这里塞——拆成小倍数图，别用双 Y 轴。
+
+    `slots` 给定时按**实体固定槽位**取色（`{"柴油自购": 2, "纯电租赁": 3}`）；不给则按
+    序列在字典里的次序从槽 0 起取。同一个页面里画多张图时**必须传 `slots`**：槽位是身份
+    编码，不传的话「第 1 条序列」在这张图是柴油、在那张图是「整体异常率」，同一个蓝就有了
+    两种读法——那正是配色规范要禁止的漂移。（此前页面只能事后逐条重写 trace 颜色来绕过，
+    那是把构造器的漏洞补在调用方。）
     """
     fig = go.Figure()
     for i, (name, ys) in enumerate(series.items()):
+        color = theme.series(slots[name] if slots else i)
         fig.add_scatter(x=list(x), y=list(ys), mode="lines+markers", name=name,
-                        line={"width": 2, "color": theme.series(i)},
-                        marker={"size": 6, "color": theme.series(i)},
+                        line={"width": 2, "color": color},
+                        marker={"size": 6, "color": color},
                         hovertemplate="%{x}<br>" + name + " %{y:,.2f}" + unit + "<extra></extra>")
     fig.update_layout(
         showlegend=True, height=height,

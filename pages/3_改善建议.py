@@ -419,6 +419,7 @@ with _r2[1]:
                                for i in range(len(_feasible))],
             },
             y_title="百分比 (%)", unit="%",
+            slots={"时间窗达成率": 0, "满载率均值": 1},
         ),
         caption=(
             "两条序列同量纲（均为百分比），故共用一根 0–100% 的轴——不使用双 Y 轴。"
@@ -648,6 +649,9 @@ UI.chart_block(
             "柴油自购": [float(_sens[lv]["diesel_daily_cost"]) for lv in _levels],
             "纯电租赁": [float(_sens[lv]["ev_daily_cost"]) for lv in _levels],
         },
+        # 槽位写实而不是靠字典次序碰巧对上：下方文案宣称「柴油永远槽 0、纯电永远槽 1」，
+        # 那句话得由代码保证，否则重排一次字典就静默变色
+        slots={"柴油自购": 0, "纯电租赁": 1},
         y_title="日总成本 (元)", unit=" 元",
     ),
     caption=(
