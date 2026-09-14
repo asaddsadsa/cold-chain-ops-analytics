@@ -289,8 +289,9 @@ def solve_vrptw(inst: SolomonInstance, time_limit_sec: float | None = None,
     params.local_search_metaheuristic = routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
     # 主停止条件是**解数**不是墙钟：routing 搜索没有随机源，墙钟是唯一让 gap 随机器负载
     # 漂移的东西（见 config.VRPTW_SOLUTION_LIMIT 的说明）。时限退居安全网。
-    params.solution_limit = (C.VRPTW_SOLUTION_LIMIT if solution_limit is None
-                             else int(solution_limit))
+    solution_limit = (C.VRPTW_SOLUTION_LIMIT if solution_limit is None
+                      else int(solution_limit))
+    params.solution_limit = solution_limit
     params.time_limit.FromSeconds(int(time_limit_sec))
     # 首解策略用 PARALLEL_CHEAPEST_INSERTION 而非 PATH_CHEAPEST_ARC：
     # 后者在紧时间窗算例（R101/RC101）上构造不出可行首解 → 整体无解（实测捕获）；
@@ -308,6 +309,7 @@ def solve_vrptw(inst: SolomonInstance, time_limit_sec: float | None = None,
             "first_solution_strategy": "PARALLEL_CHEAPEST_INSERTION",
             "local_search": "GUIDED_LOCAL_SEARCH",
             "time_limit_sec": time_limit_sec,
+            "solution_limit": solution_limit,
         }
 
     routes, scaled_total = [], 0
@@ -339,6 +341,7 @@ def solve_vrptw(inst: SolomonInstance, time_limit_sec: float | None = None,
         "first_solution_strategy": "PARALLEL_CHEAPEST_INSERTION",
         "local_search": "GUIDED_LOCAL_SEARCH",
         "time_limit_sec": time_limit_sec,
+        "solution_limit": solution_limit,
     }
 
 
@@ -418,6 +421,9 @@ def validate(
             "strategy": {
                 "first_solution": sol["first_solution_strategy"],
                 "local_search": sol["local_search"],
+                # 两个都记：主停止条件是解数，时限只是安全网。只记后者会让读的人
+                # 以为这个解是跑 300 秒跑出来的（ADR-0015）。
+                "solution_limit": sol["solution_limit"],
                 "time_limit_sec": sol["time_limit_sec"],
             },
         }

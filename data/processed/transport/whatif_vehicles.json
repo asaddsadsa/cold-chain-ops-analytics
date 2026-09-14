@@ -42,7 +42,8 @@
             "per_order": 16.16
           }
         },
-        "solve_time_limit_sec": null
+        "solve_time_limit_sec": null,
+        "solve_solution_limit": 500
       },
       "n_vehicles_used": null,
       "total_distance_km": null,
@@ -54,7 +55,8 @@
       "load_rate_max": null,
       "mileage_utilization": null,
       "cost": null,
-      "solve_time_limit_sec": null
+      "solve_time_limit_sec": null,
+      "solve_solution_limit": null
     },
     "6": {
       "n_vehicles_available": 6,
@@ -80,7 +82,8 @@
             "per_order": 19.41
           }
         },
-        "solve_time_limit_sec": null
+        "solve_time_limit_sec": null,
+        "solve_solution_limit": 500
       },
       "n_vehicles_used": null,
       "total_distance_km": null,
@@ -92,7 +95,8 @@
       "load_rate_max": null,
       "mileage_utilization": null,
       "cost": null,
-      "solve_time_limit_sec": null
+      "solve_time_limit_sec": null,
+      "solve_solution_limit": null
     },
     "7": {
       "n_vehicles_available": 7,
@@ -118,7 +122,8 @@
             "per_order": 22.75
           }
         },
-        "solve_time_limit_sec": null
+        "solve_time_limit_sec": null,
+        "solve_solution_limit": 500
       },
       "n_vehicles_used": null,
       "total_distance_km": null,
@@ -130,7 +135,8 @@
       "load_rate_max": null,
       "mileage_utilization": null,
       "cost": null,
-      "solve_time_limit_sec": null
+      "solve_time_limit_sec": null,
+      "solve_solution_limit": null
     },
     "8": {
       "n_vehicles_available": 8,
@@ -156,7 +162,8 @@
             "per_order": 26.08
           }
         },
-        "solve_time_limit_sec": null
+        "solve_time_limit_sec": null,
+        "solve_solution_limit": 500
       },
       "n_vehicles_used": null,
       "total_distance_km": null,
@@ -168,7 +175,8 @@
       "load_rate_max": null,
       "mileage_utilization": null,
       "cost": null,
-      "solve_time_limit_sec": null
+      "solve_time_limit_sec": null,
+      "solve_solution_limit": null
     },
     "9": {
       "n_vehicles_available": 9,
@@ -194,28 +202,30 @@
             "per_order": 29.3
           }
         },
-        "solve_time_limit_sec": null
+        "solve_time_limit_sec": null,
+        "solve_solution_limit": 500
       },
       "n_vehicles_used": 9,
-      "total_distance_km": 862.52,
+      "total_distance_km": 945.73,
       "time_window_rate": 0.7954545454545454,
       "n_orders_ontime": 105,
       "n_orders_served": 132,
       "n_orders_unserved": 0,
       "load_rate_mean": 0.8559420634920636,
       "load_rate_max": 0.9724785714285714,
-      "mileage_utilization": 0.6951,
+      "mileage_utilization": 0.722,
       "cost": {
         "diesel": {
-          "total": 4134.4,
-          "per_order": 31.32
+          "total": 4226.76,
+          "per_order": 32.02
         },
         "ev": {
-          "total": 3835.51,
-          "per_order": 29.06
+          "total": 3872.12,
+          "per_order": 29.33
         }
       },
-      "solve_time_limit_sec": 300.0
+      "solve_time_limit_sec": 300.0,
+      "solve_solution_limit": 500
     },
     "10": {
       "n_vehicles_available": 10,
@@ -241,28 +251,30 @@
             "per_order": 32.59
           }
         },
-        "solve_time_limit_sec": null
+        "solve_time_limit_sec": null,
+        "solve_solution_limit": 500
       },
       "n_vehicles_used": 10,
-      "total_distance_km": 1005.93,
+      "total_distance_km": 907.35,
       "time_window_rate": 0.7954545454545454,
       "n_orders_ontime": 105,
       "n_orders_served": 132,
       "n_orders_unserved": 0,
-      "load_rate_mean": 0.770347857142857,
-      "load_rate_max": 0.9847214285714286,
-      "mileage_utilization": 0.7309,
+      "load_rate_mean": 0.7703478571428571,
+      "load_rate_max": 0.9316142857142857,
+      "mileage_utilization": 0.7017,
       "cost": {
         "diesel": {
-          "total": 4646.59,
-          "per_order": 35.2
+          "total": 4537.16,
+          "per_order": 34.37
         },
         "ev": {
-          "total": 4282.61,
-          "per_order": 32.44
+          "total": 4239.23,
+          "per_order": 32.12
         }
       },
-      "solve_time_limit_sec": 300.0
+      "solve_time_limit_sec": 300.0,
+      "solve_solution_limit": 500
     },
     "11": {
       "n_vehicles_available": 11,
@@ -288,7 +300,8 @@
             "per_order": 35.9
           }
         },
-        "solve_time_limit_sec": null
+        "solve_time_limit_sec": null,
+        "solve_solution_limit": 500
       },
       "n_vehicles_used": 10,
       "total_distance_km": 873.87,
@@ -309,7 +322,8 @@
           "per_order": 32.0
         }
       },
-      "solve_time_limit_sec": 300.0
+      "solve_time_limit_sec": 300.0,
+      "solve_solution_limit": 500
     },
     "12": {
       "n_vehicles_available": 12,
@@ -335,7 +349,8 @@
             "per_order": 35.9
           }
         },
-        "solve_time_limit_sec": null
+        "solve_time_limit_sec": null,
+        "solve_solution_limit": 500
       },
       "n_vehicles_used": 10,
       "total_distance_km": 876.15,
@@ -356,7 +371,8 @@
           "per_order": 32.01
         }
       },
-      "solve_time_limit_sec": 300.0
+      "solve_time_limit_sec": 300.0,
+      "solve_solution_limit": 500
     },
     "13": {
       "n_vehicles_available": 13,
@@ -382,7 +398,8 @@
             "per_order": 35.9
           }
         },
-        "solve_time_limit_sec": null
+        "solve_time_limit_sec": null,
+        "solve_solution_limit": 500
       },
       "n_vehicles_used": 10,
       "total_distance_km": 876.15,
@@ -403,7 +420,8 @@
           "per_order": 32.01
         }
       },
-      "solve_time_limit_sec": 300.0
+      "solve_time_limit_sec": 300.0,
+      "solve_solution_limit": 500
     },
     "14": {
       "n_vehicles_available": 14,
@@ -429,7 +447,8 @@
             "per_order": 35.9
           }
         },
-        "solve_time_limit_sec": null
+        "solve_time_limit_sec": null,
+        "solve_solution_limit": 500
       },
       "n_vehicles_used": 10,
       "total_distance_km": 876.15,
@@ -450,7 +469,8 @@
           "per_order": 32.01
         }
       },
-      "solve_time_limit_sec": 300.0
+      "solve_time_limit_sec": 300.0,
+      "solve_solution_limit": 500
     },
     "15": {
       "n_vehicles_available": 15,
@@ -476,7 +496,8 @@
             "per_order": 35.9
           }
         },
-        "solve_time_limit_sec": null
+        "solve_time_limit_sec": null,
+        "solve_solution_limit": 500
       },
       "n_vehicles_used": 10,
       "total_distance_km": 876.15,
@@ -497,7 +518,8 @@
           "per_order": 32.01
         }
       },
-      "solve_time_limit_sec": 300.0
+      "solve_time_limit_sec": 300.0,
+      "solve_solution_limit": 500
     },
     "16": {
       "n_vehicles_available": 16,
@@ -523,7 +545,8 @@
             "per_order": 35.9
           }
         },
-        "solve_time_limit_sec": null
+        "solve_time_limit_sec": null,
+        "solve_solution_limit": 500
       },
       "n_vehicles_used": 10,
       "total_distance_km": 876.15,
@@ -544,7 +567,8 @@
           "per_order": 32.01
         }
       },
-      "solve_time_limit_sec": 300.0
+      "solve_time_limit_sec": 300.0,
+      "solve_solution_limit": 500
     },
     "17": {
       "n_vehicles_available": 17,
@@ -570,7 +594,8 @@
             "per_order": 35.9
           }
         },
-        "solve_time_limit_sec": null
+        "solve_time_limit_sec": null,
+        "solve_solution_limit": 500
       },
       "n_vehicles_used": 10,
       "total_distance_km": 876.15,
@@ -591,7 +616,8 @@
           "per_order": 32.01
         }
       },
-      "solve_time_limit_sec": 300.0
+      "solve_time_limit_sec": 300.0,
+      "solve_solution_limit": 500
     },
     "18": {
       "n_vehicles_available": 18,
@@ -617,7 +643,8 @@
             "per_order": 35.9
           }
         },
-        "solve_time_limit_sec": null
+        "solve_time_limit_sec": null,
+        "solve_solution_limit": 500
       },
       "n_vehicles_used": 10,
       "total_distance_km": 876.15,
@@ -638,7 +665,8 @@
           "per_order": 32.01
         }
       },
-      "solve_time_limit_sec": 300.0
+      "solve_time_limit_sec": 300.0,
+      "solve_solution_limit": 500
     },
     "19": {
       "n_vehicles_available": 19,
@@ -664,7 +692,8 @@
             "per_order": 35.9
           }
         },
-        "solve_time_limit_sec": null
+        "solve_time_limit_sec": null,
+        "solve_solution_limit": 500
       },
       "n_vehicles_used": 10,
       "total_distance_km": 876.15,
@@ -685,7 +714,8 @@
           "per_order": 32.01
         }
       },
-      "solve_time_limit_sec": 300.0
+      "solve_time_limit_sec": 300.0,
+      "solve_solution_limit": 500
     },
     "20": {
       "n_vehicles_available": 20,
@@ -711,7 +741,8 @@
             "per_order": 35.9
           }
         },
-        "solve_time_limit_sec": null
+        "solve_time_limit_sec": null,
+        "solve_solution_limit": 500
       },
       "n_vehicles_used": 10,
       "total_distance_km": 876.15,
@@ -732,7 +763,8 @@
           "per_order": 32.01
         }
       },
-      "solve_time_limit_sec": 300.0
+      "solve_time_limit_sec": 300.0,
+      "solve_solution_limit": 500
     }
   },
   "time_limit_sec": 300.0,
@@ -744,7 +776,7 @@
     "distance_km": 876.15,
     "published_distance_km": 876.15,
     "distance_delta_pct": 0.0,
-    "note": "档位=车队规模时的 what-if 解 vs 10 号票发表的优化解。两者建模同构、时限相同，但带时限的搜索按**挂钟**截断迭代，同参数多次求解不保证同解——本机实测同档出现过 876.15 / 870.16 km 两个结果（相差 0.68%）。故只记录差值、不设硬阈值：1% 量级属搜索随机性，量级明显变大才说明两处建模已经走偏"
+    "note": "档位=车队规模时的 what-if 解 vs 10 号票发表的优化解。两者建模同构、停止条件相同（解数，ADR-0015），故这个差值**恒为 0.0%**——它不是随机性的容忍带，而是「两处建模没走偏」的探测器：一旦不为 0，说明有一处被改过而另一处没跟上"
   },
   "representative_day": "2026-07-13",
   "data_category": "预计算结果（非实时求解，ADR-0010）",

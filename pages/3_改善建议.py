@@ -85,7 +85,7 @@ def _tco_kwargs(param: str, level: str) -> dict:
     """把「敏感性参数 + 档位」翻成 `config` 成本函数的关键字参数。
 
     **one-at-a-time**：只有被选中的那个参数取 `level`，其余一律留 `mid`——
-    这正是 `transport_tco.json::sensitivity` 的生成口径（见 `sensitivity_table` docstring），
+    这正是 `transport_tco.json::sensitivity` 的生成口径（见 `costing.tco_analysis` docstring），
     页面若把三个参数同时变，得到的是产物里**不存在**的组合。
     """
     kw = {"driver_wage": "mid", "energy_price": "mid", "rent": "mid"}

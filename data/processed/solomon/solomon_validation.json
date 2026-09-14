@@ -27,6 +27,7 @@
       "strategy": {
         "first_solution": "PARALLEL_CHEAPEST_INSERTION",
         "local_search": "GUIDED_LOCAL_SEARCH",
+        "solution_limit": 500,
         "time_limit_sec": 300.0
       }
     },
@@ -37,7 +38,7 @@
       "capacity": 200,
       "ours": {
         "vehicles": 19,
-        "distance": 1680.68
+        "distance": 1653.54
       },
       "bks": {
         "vehicles": 20,
@@ -45,7 +46,7 @@
       },
       "gaps": {
         "vehicles_gap": -0.05,
-        "distance_gap": 0.0262,
+        "distance_gap": 0.0097,
         "gate_gap": -0.05,
         "basis": "车辆数少于 BKS（19 < 20）→ 用车更优，gap 取保守值"
       },
@@ -53,6 +54,7 @@
       "strategy": {
         "first_solution": "PARALLEL_CHEAPEST_INSERTION",
         "local_search": "GUIDED_LOCAL_SEARCH",
+        "solution_limit": 500,
         "time_limit_sec": 300.0
       }
     },
@@ -63,7 +65,7 @@
       "capacity": 200,
       "ours": {
         "vehicles": 16,
-        "distance": 1682.15
+        "distance": 1669.4
       },
       "bks": {
         "vehicles": 15,
@@ -71,7 +73,7 @@
       },
       "gaps": {
         "vehicles_gap": 0.0667,
-        "distance_gap": 0.0385,
+        "distance_gap": 0.0306,
         "gate_gap": 0.0667,
         "basis": "车辆数多于 BKS（16 > 15）→ 取车辆 gap 与距离 gap 较大者"
       },
@@ -79,6 +81,7 @@
       "strategy": {
         "first_solution": "PARALLEL_CHEAPEST_INSERTION",
         "local_search": "GUIDED_LOCAL_SEARCH",
+        "solution_limit": 500,
         "time_limit_sec": 300.0
       }
     }

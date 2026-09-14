@@ -394,7 +394,7 @@ def whatif_gears() -> list[int]:
 _PLAN_FIELDS = (
     "n_vehicles_used", "total_distance_km", "time_window_rate", "n_orders_ontime",
     "n_orders_served", "n_orders_unserved", "load_rate_mean", "load_rate_max",
-    "mileage_utilization", "cost", "solve_time_limit_sec",
+    "mileage_utilization", "cost", "solve_time_limit_sec", "solve_solution_limit",
 )
 
 
@@ -495,16 +495,19 @@ def _plan_record(
         "cost": {m: {"total": k["cost"][m]["total"], "per_order": k["cost"][m]["per_order"]}
                  for m in ("diesel", "ev")},
         "solve_time_limit_sec": time_limit_sec,
+        # 记下**真正的**停止条件（主条件），否则产物里只剩一个 300 秒的安全网，
+        # 读的人会以为「这个解是跑 300 秒跑出来的」（ADR-0015）。
+        "solve_solution_limit": C.VRPTW_SOLUTION_LIMIT,
     }
 
 
 def _consistency_check(gears: dict[str, dict]) -> dict:
-    """档位 = 车队规模时，预计算结果与 10 号票发表结果的差值。
+    """档位 = 车队规模时，预计算结果与 10 号票发表结果的差值——建模走偏的探测器。
 
-    OR-Tools 带时限的启发式搜索按**挂钟**截断迭代，同参数多次求解**不保证同解**——
-    本机对同一档（15 台）实测出现过 876.15 与 870.16 km 两个结果，相差 **0.68%**
-    （4 次观测中 3 次同值）。故这里**记录**差值而不是断言相等，也不设硬阈值：
-    差值在 1% 量级属搜索随机性，量级明显变大才说明两处建模已经走偏。
+    求解的停止条件自 ADR-0015 起是**解数**而不是墙钟（routing 搜索本身没有随机源），
+    同一个输入每次求解逐字段一致，所以这个差值**恒为 0.0%**。曾经记的「本机实测出现过
+    876.15 / 870.16 km 两个结果」不是搜索随机性，而是墙钟在负载不同时截在了搜索轨迹的
+    不同位置——那个成因已经消除，这里也就不再需要「只记录、不设阈值」的保留。
     """
     key = str(int(C.FLEET_SIZE))
     published = None
@@ -523,10 +526,9 @@ def _consistency_check(gears: dict[str, dict]) -> dict:
         "published_distance_km": published,
         "distance_delta_pct": round((got_km - published) / published * 100, 3) if published else None,
         "note": (
-            "档位=车队规模时的 what-if 解 vs 10 号票发表的优化解。两者建模同构、时限相同，"
-            "但带时限的搜索按**挂钟**截断迭代，同参数多次求解不保证同解——本机实测同档出现过 "
-            "876.15 / 870.16 km 两个结果（相差 0.68%）。故只记录差值、不设硬阈值："
-            "1% 量级属搜索随机性，量级明显变大才说明两处建模已经走偏"
+            "档位=车队规模时的 what-if 解 vs 10 号票发表的优化解。两者建模同构、停止条件"
+            "相同（解数，ADR-0015），故这个差值**恒为 0.0%**——它不是随机性的容忍带，"
+            "而是「两处建模没走偏」的探测器：一旦不为 0，说明有一处被改过而另一处没跟上"
         ),
     }
 
