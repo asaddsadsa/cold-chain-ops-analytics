@@ -47,8 +47,8 @@ python -m src.warehouse_sim          # F SimPy 双实验 + 预计算缓存
 ```bash
 python -m src.olist_kpi              # Olist 真实履约 KPI
 python -m src.warehouse_kpi          # 模块一：仓内 KPI / ABC / 库位重排
-python -m src.transport_optimize     # 模块二（上）：基线 vs VRPTW 优化核心（约 35 秒）
-python -m src.transport_decisions    # 模块二（下）：周度复盘 / TCO / what-if 16 档预计算（约 8 分钟）
+python -m src.transport_optimize     # 模块二（上）：基线 vs VRPTW 优化核心
+python -m src.transport_decisions    # 模块二（下）：周度复盘 / TCO / what-if 16 档预计算（约 1.5 分钟）
 ```
 
 > 顺序有依赖：`transport_decisions` 读 `transport_optimize` 的落盘产物作「优化前后」口径的
@@ -81,7 +81,7 @@ streamlit run app.py
 | 运输分析（Folium 路线地图、前后对比、满载率分布、异常周趋势、温控仪表、TCO 曲线） | ![运输分析](report/screenshots/transport.png) |
 | 改善建议（诊断→动作→收益表、车辆数/ABC 阈值/人力/动力模式四组 what-if 控件） | ![改善建议](report/screenshots/recommend.png) |
 
-报告成品见 [`report/pdca_report.pdf`](report/pdca_report.pdf)（10 页，中文，由 `report/build_pdf.py` 生成）。
+报告成品见 [`report/pdca_report.pdf`](report/pdca_report.pdf)（12 页，中文，由 `report/build_pdf.py` 生成）。
 
 ---
 
@@ -103,7 +103,7 @@ project/
 ├── tests/              # KPI 与 config 单元测试
 ├── data_sources_ledger.md   # 数据来源与参数标定台账
 ├── CONTEXT.md          # 领域术语表
-├── docs/adr/           # 架构决策记录 0001–0014
+├── docs/adr/           # 架构决策记录 0001–0015
 ├── .env.example        # AMAP_KEY= 模板
 ├── requirements.txt    # 依赖锁定
 └── README.md
@@ -141,7 +141,7 @@ project/
 ## 设计与决策文档
 
 - [`CONTEXT.md`](CONTEXT.md)：领域术语表（数据四层分类、真实准时交付率 vs 时间窗达成率、ABC 分类、冷链城配、需求聚合、代表日等）。
-- [`docs/adr/`](docs/adr/)：十四条架构决策（0001 仿真校准 · 0002 ABC 数据源 · 0003 代表日 · 0004 需求聚合 · 0005 冷链设定 · 0006 Python/pandas 版本 · 0007 PDF 方案 · 0008 高德矩阵 · 0009 成本参数溯源 · 0010 what-if 预计算 · 0011 看板图表库 · 0012 去掉 Excel 校验簿 · 0013 运输 TCO 口径 · 0014 看板逐日序列）。
+- [`docs/adr/`](docs/adr/)：十五条架构决策（0001 仿真校准 · 0002 ABC 数据源 · 0003 代表日 · 0004 需求聚合 · 0005 冷链设定 · 0006 Python/pandas 版本 · 0007 PDF 方案 · 0008 高德矩阵 · 0009 成本参数溯源 · 0010 what-if 预计算 · 0011 看板图表库 · 0012 去掉 Excel 校验簿 · 0013 运输 TCO 口径 · 0014 看板逐日序列 · 0015 求解停止条件）。
 - [`data_sources_ledger.md`](data_sources_ledger.md)：数据来源与参数标定台账（持续维护）。
 - [`.scratch/dc-ops-analytics/`](.scratch/dc-ops-analytics/)：PRD（spec.md）与实现票（issues/01–17）。
 
