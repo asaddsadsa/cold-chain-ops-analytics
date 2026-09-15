@@ -313,6 +313,44 @@ class TestMissingAndUnknown:
         assert [a.key for a in D.missing_artifacts()] == ["ghost"]
 
 
+class TestRegionCodes:
+    """派生视图：片区清单是 POI 表的**去重投影**，读法取「地区名（码）」。
+
+    `regions.csv` 一行一个提货点（49 个 POI 带 `region`/`district` 列），8 个片区码按 POI
+    重复出现。取该列时必须去重——回归：看板侧边栏曾把整列交给 multiselect，下拉里出现 49 项。
+    """
+
+    def _stub(self, monkeypatch, tmp_path, text: str) -> None:
+        csv = tmp_path / "regions.csv"
+        csv.write_text(text, encoding="utf-8")
+        entry = D.Artifact("regions", csv, "python -m src.gen_delivery_data")
+        monkeypatch.setattr(D, "ARTIFACT_BY_KEY", {**D.ARTIFACT_BY_KEY, "regions": entry})
+
+    def test_a_poi_level_table_collapses_to_one_entry_per_region(self, tmp_path, monkeypatch):
+        self._stub(monkeypatch, tmp_path,
+                   "poi_id,district,region\nP001,成华区,R02\nP002,成华区,R02\nP003,青羊区,R01\n")
+        assert D.region_codes() == ("R01", "R02")
+
+    def test_an_empty_table_falls_back_to_the_canonical_code_table(self, tmp_path, monkeypatch):
+        """产物在但一行没有（0 行、或 region 列全空）时，退回 config 的片区码表，
+        而不是给用户一个空下拉。缺**文件**是另一回事：那由 `MissingArtifact` 拦下。"""
+        self._stub(monkeypatch, tmp_path, "poi_id,district,region\n")
+        assert D.region_codes() == C.REGION_CODES
+
+    def test_the_label_leads_with_the_district_and_keeps_the_code(self, tmp_path, monkeypatch):
+        """地区名在前（给人读）、码在括注里（给追溯用）。码不能丢：`config.HIGH_ANOMALY_REGION`
+        与台账 / 报告的埋点叙述都写 R07——看板上的数是靠这个码才追得回报告的。"""
+        self._stub(monkeypatch, tmp_path,
+                   "poi_id,district,region\nP001,成华区,R02\nP002,青羊区,R01\n")
+        assert D.region_labels() == {"R01": "青羊区（R01）", "R02": "成华区（R02）"}
+
+    def test_mapping_a_column_keeps_unregistered_codes_verbatim(self, tmp_path, monkeypatch):
+        """未登记的码原样返回，不静默变成 NaN——NaN 会在表格里渲染成空白单元格。"""
+        self._stub(monkeypatch, tmp_path, "poi_id,district,region\nP001,青羊区,R01\n")
+        got = D.label_regions(pd.Series(["R01", "R99"]))
+        assert list(got) == ["青羊区（R01）", "R99"]
+
+
 class TestMtimeCacheKey:
     """产物一被重写就自动重读——这是「看板数字与报告对不上」最常见的来源。"""
 
@@ -369,6 +407,21 @@ class TestRealArtifacts:
         assert len(D.routes_geojson("optimized")["features"]) >= 1
         with pytest.raises(ValueError, match="未知路线方案"):
             D.routes_geojson("nope")
+
+    def test_regions_artifact_is_poi_level_and_yields_the_eight_codes(self):
+        """前提与结论一起断言：真实产物是 49 行的 POI 表，而片区维度只有 8 个码。
+
+        两个数必须一起看——只看 `region_codes()` 等于 8，看不出它是去重来的；
+        只看 49 行，又看不出读侧该做什么。
+        """
+        assert len(D.artifact("regions")) > len(C.REGION_CODES)
+        assert D.region_codes() == C.REGION_CODES
+
+    def test_region_labels_bridge_to_the_ledger_and_the_report(self):
+        """台账把码与地区一并发表（「R07 青白江」），报告写「R07（青白江）」。看板的读法
+        必须与这两处对得上，否则读者在看板与报告之间对不上号。"""
+        assert D.region_labels()["R07"] == "青白江区（R07）"
+        assert set(D.region_labels()) == set(D.region_codes())
 
     def test_describe_reports_the_composite_category_verbatim(self):
         """一份产物可同时属于多类，读侧不得压成单一类别（CONTEXT.md「复合类别」）。"""

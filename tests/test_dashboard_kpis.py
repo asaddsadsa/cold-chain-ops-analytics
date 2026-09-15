@@ -7,9 +7,12 @@
 
 from __future__ import annotations
 
+import re
+
 import pandas as pd
 import pytest
 
+from src import config as C
 from src.dashboard import kpis
 
 TS = pd.Timestamp
@@ -195,6 +198,48 @@ class TestFiltersPure:
     def test_scope_note_states_what_the_page_actually_honours(self):
         note = self._filters().scope_note("日期范围、配送区域")
         assert "日期范围、配送区域" in note and "R07" in note
+
+
+class TestRegionFilterOptions:
+    """回归：片区下拉的选项清单必须是**一个维度**，不是一张明细表。
+
+    `regions.csv` 是 POI 级表（一行一个提货点，带 `region` 列）。侧边栏原先直接把该列整列
+    交给 `multiselect`，8 个片区码就按 POI 条数摊成 49 项（R07 一项重复 14 次），用户下拉里
+    看到一长串重复编号。
+
+    这里驱动**真实的 `filters.sidebar()`**（Streamlit 自带的 AppTest 在真 runtime 里跑脚本），
+    断言的就是用户在页面上看到的那份清单——而不是另写一份推导逻辑自证。
+    """
+
+    def _sidebar(self):
+        from streamlit.testing.v1 import AppTest
+
+        def _app() -> None:
+            from src.dashboard import filters
+
+            filters.sidebar()
+
+        at = AppTest.from_function(_app, default_timeout=60).run()
+        assert not at.exception, [e.value for e in at.exception]
+        return at
+
+    def _box(self, at):
+        (box,) = [w for w in at.sidebar.multiselect if w.label == "配送区域"]
+        return box
+
+    def test_each_region_is_offered_exactly_once_and_reads_as_a_district(self):
+        box = self._box(self._sidebar())
+        assert len(box.options) == len(C.REGION_CODES)
+        assert len(set(box.options)) == len(box.options), "选项里有重复编号"
+        assert all(re.fullmatch(r".+区（R\d{2}）", label) for label in box.options), box.options
+
+    def test_picking_a_region_keeps_the_code_as_its_value(self):
+        """**显示**是地区名，**值**必须仍是片区码——`apply_regions` 按码筛，选项若换成地区名
+        就会静默筛不到任何东西（看起来像「这段时间没有运单」）。这是本页最容易改坏的地方。"""
+        at = self._sidebar()
+        self._box(at).select("R07").run()
+        assert not at.exception, [e.value for e in at.exception]
+        assert self._box(at).value == ["R07"]
 
 
 class TestThemePalette:

@@ -70,6 +70,13 @@ streamlit run app.py
 页面读数一律来自 `data/processed/` 产物，**缺产物会直接列出该跑哪条命令并停下**，
 不会用 0 或空图冒充「今天没有异常」。
 
+> **改了 `src/` 下的代码，必须重启看板（Ctrl-C 后重跑），刷新浏览器没用。**
+> Streamlit 每次 rerun 只重新执行 `app.py` 与 `pages/` 下的页面脚本——它按路径重读磁盘；
+> 而**已经 import 过的模块留在进程的 `sys.modules` 里**，源码变了也不会重新载入。于是不重启
+> 就会出现「新页面脚本调旧模块」的混合状态，典型症状是
+> `AttributeError: module 'src.dashboard.data' has no attribute ...`，或者下拉框里的选项
+> 还停在上一版。侧边栏的「刷新产物读数」只清取数缓存（`st.cache_data`），**不重载代码**。
+
 ---
 
 ## 结果截图

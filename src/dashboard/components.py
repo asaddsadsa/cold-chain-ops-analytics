@@ -19,6 +19,7 @@ import streamlit as st
 
 from src import anomaly
 from src import config as C
+from src.dashboard import data as D
 from src.dashboard import theme
 from src.dashboard.kpis import Metric
 
@@ -142,7 +143,8 @@ def warning_rows(anomalies: pd.DataFrame, *, limit: int = 8) -> pd.DataFrame:
     严重度 = 延误分钟（温控波动按温升），与 11 号票典型案例清单**同一套规则**——规则本身
     住在 `src/anomaly.py::with_severity`，本函数只决定**展示口径**：按日期倒序取最近若干条
     （报告侧是按异常类型分组、每类取前 N）。同分按日期与订单号兜底，保证同样输入下清单逐条
-    可复现（不随排序抖动）。
+    可复现（不随排序抖动）。片区列也在这里换成读法（「青白江区（R07）」），因为清单是给人看的
+    ——按项目纪律，读侧是唯一能解释产物的层。
     """
     if anomalies.empty:
         return anomalies
@@ -153,7 +155,9 @@ def warning_rows(anomalies: pd.DataFrame, *, limit: int = 8) -> pd.DataFrame:
                         ascending=[False, False, True], kind="stable")
     # 看板把 `date` 提到最前（清单按时间读），其余列序与报告侧共用同一份声明
     keep = ["date", *[c for c in anomaly.SEVERITY_COLUMNS if c != "date"]]
-    return df[keep].head(limit).reset_index(drop=True)
+    out = df[keep].head(limit).reset_index(drop=True)
+    out["region"] = D.label_regions(out["region"])
+    return out
 
 
 def warning_list(rows: pd.DataFrame) -> None:

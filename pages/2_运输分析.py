@@ -434,6 +434,7 @@ with _p1:
             ),
             table=(_anom.groupby("region")["temp_compliance_rate"]
                    .agg(["size", "mean"]).reset_index()
+                   .assign(region=lambda d: D.label_regions(d["region"]))
                    .rename(columns={"region": "片区", "size": "运单数",
                                     "mean": "温控达标率（均值）"})),
             table_label="温控达标率数据表",

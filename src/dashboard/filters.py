@@ -25,7 +25,6 @@ from dataclasses import dataclass, field
 import pandas as pd
 import streamlit as st
 
-from src import config as C
 from src.dashboard import data as D
 from src.dashboard import kpis
 from src.dashboard.kpis import Window
@@ -53,7 +52,11 @@ class Filters:
 
     @property
     def regions_label(self) -> str:
-        return "全部片区" if not self.regions else "、".join(self.regions)
+        """当前选区，用与下拉一致的读法（「青白江区（R07）」）——不是裸码。"""
+        if not self.regions:
+            return "全部片区"
+        labels = D.region_labels()
+        return "、".join(labels.get(code, code) for code in self.regions)
 
     def describe(self) -> str:
         """一行摘要：当前区间 + 品类 + 片区。"""
@@ -97,11 +100,12 @@ def sidebar() -> Filters:
     else:
         window = _preset_window(last_day, preset, ())
 
-    codes = list(C.REGION_CODES)
-    regions_df = D.artifact("regions")
-    if regions_df.shape[0]:
-        codes = [c for c in regions_df["region"].tolist()] or codes
-    regions = st.sidebar.multiselect("配送区域", codes, default=[], placeholder="全部片区")
+    # 选项的**值**是片区码（下游 `apply_regions` 按它筛），**显示**是「青白江区（R07）」
+    # ——码不能丢：台账、报告与 config.HIGH_ANOMALY_REGION 的埋点叙述都用码。
+    labels = D.region_labels()
+    regions = st.sidebar.multiselect("配送区域", D.region_codes(), default=[],
+                                     format_func=lambda code: labels.get(code, code),
+                                     placeholder="全部片区")
 
     sku = D.artifact("sku_master")
     if sku.empty:

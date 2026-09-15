@@ -125,7 +125,9 @@ ARTIFACTS: tuple[Artifact, ...] = (
              {"parse_dates": ["date"]}),
     Artifact("anomalies", C.DELIVERY_ANOMALIES_CSV, "python -m src.gen_delivery_data", "csv",
              {"parse_dates": ["date"]}),
-    Artifact("regions", C.DELIVERY_REGIONS_CSV, "python -m src.gen_delivery_data", "csv"),
+    Artifact("regions", C.DELIVERY_REGIONS_CSV, "python -m src.gen_delivery_data", "csv",
+             # 读侧只用这两列（片区码 + 行政区名），列名即契约
+             {"usecols": ["region", "district"]}),
     # --- 地理参照 -------------------------------------------------------------
     Artifact("poi", C.POI_CSV, "python -m src.geo_poi", "csv"),
     # --- 数据层 A：仿真仓五表（01 号票） --------------------------------------
@@ -293,6 +295,40 @@ def order_window() -> tuple[pd.Timestamp, pd.Timestamp]:
     """全量数据的日期跨度（筛选器的可用范围，取 90 天窗口的起止）。"""
     d = artifact("delivery_orders")["date"]
     return pd.Timestamp(d.min()), pd.Timestamp(d.max())
+
+
+def region_labels() -> Mapping[str, str]:
+    """片区码 → 给人读的标签：「R07」→「青白江区（R07）」。
+
+    码是**数据里的键**：`region` 列、`config.HIGH_ANOMALY_REGION`、台账与报告的埋点叙述
+    一律写 R07。地区名是**给人读的名字**。两者都要——只给码，读者不知道那是哪儿；只给地区
+    名，又切断了与 config / 台账 / 报告的对应。故标签取「地区名（码）」，地区名在前。
+
+    映射取自 POI 表自身的 `district` 列：一个片区就是一个行政区（`assign_regions` 的构造
+    前提），故该映射恒为 1:1。
+    """
+    pairs = artifact("regions")[["region", "district"]].dropna().drop_duplicates()
+    return {code: f"{district}（{code}）"
+            for code, district in zip(pairs["region"], pairs["district"])}
+
+
+def label_regions(regions: pd.Series) -> pd.Series:
+    """把一整列 `region` 换成可读标签；未登记的码原样保留（不静默变成 NaN）。"""
+    return regions.map(region_labels()).fillna(regions)
+
+
+def region_codes() -> tuple[str, ...]:
+    """配送片区码表 R01–R08（筛选器「配送区域」的取值域）。
+
+    与 `order_window()` 之于日期筛选器同理：**筛选器的取值域是产物的一张投影，不是一张
+    独立维度表**。`regions.csv` 是 POI 级表——一行一个提货点（49 行），8 个片区码按 POI
+    重复出现；片区清单是它去重、排序后的投影。直接取整列会得到 49 个带重复的选项，
+    用户看到的下拉就是一长串重复编号。
+
+    去重后为空（产物在但一行没有）时退回 `config.REGION_CODES`——那是片区码的规范表，
+    给用户一个空下拉不如给出片区全集。缺**文件**不走这条路，由 `MissingArtifact` 拦下。
+    """
+    return tuple(sorted(region_labels())) or C.REGION_CODES
 
 
 def location_frequency() -> pd.DataFrame:
