@@ -254,7 +254,7 @@ def tco_analysis(ref_km: float | None = None) -> dict:
 
     return {
         "data_category": "情景假设",
-        "source": "参数锚点=需求文档 2026-09 市场检索，登记于 data_sources_ledger.md 第 4 节（ADR-0009，URL 待补）",
+        "source": "参数锚点=需求文档 2026-09 市场检索，登记于 data_sources_ledger.md 第 4 节（ADR-0009；具体 URL 已于 2026-09-15 逐页核验回填）",
         "reference_daily_km": ref_km,
         "curves": curves,
         "breakeven_km": {"km": round(breakeven, 2), "basis": "柴油自购 vs 纯电租赁 日总成本相等点"},
