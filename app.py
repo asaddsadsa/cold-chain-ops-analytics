@@ -109,7 +109,7 @@ trend_table = (
     .sort_values("date")
 )
 with st.expander("趋势数据表（上图全部数值）"):
-    st.dataframe(trend_table, width="stretch", hide_index=True)
+    UI.data_table(trend_table)
 
 st.divider()
 
@@ -121,18 +121,23 @@ anom = F.apply_regions(D.artifact("anomalies"), f)
 in_win = anom[
     (anom["date"] >= f.window.start.normalize()) & (anom["date"] <= f.window.end.normalize())
 ]
-rows = UI.warning_rows(in_win, limit=10)
+rows = UI.warning_rows(in_win)
 st.caption(
     f"区间内运单 **{len(in_win):,}** 单，其中异常 "
     f"**{int((in_win['anomaly_type'] != C.NO_ANOMALY).sum()):,}** 单"
     f"（异常率 {(in_win['anomaly_type'] != C.NO_ANOMALY).mean():.2%}）。"
     "严重度：晚点/故障/拥堵取延误分钟，温控波动取温升——后者延误被限制在 0–10 分钟，"
     "诊断价值在温度而非时刻。"
+    f"**下面 {len(rows):,} 条是全部异常**（按日期倒序，同日按严重度），在框内滚动查看；"
+    "逐列明细见数据表。"
 )
-UI.warning_list(rows)
+# 全部条数放进**可滚动容器**：异常可能有几百条，直接铺开会把整页顶下去，
+# 而只显示前若干条又等于替用户决定了「看多少」——截断是猜测，不是需求。
+with st.container(height=420):
+    UI.warning_list(rows)
 if not rows.empty:
-    with st.expander("预警清单数据表"):
-        st.dataframe(rows, width="stretch", hide_index=True)
+    with st.expander(f"预警清单数据表（全部 {len(rows):,} 条）"):
+        UI.data_table(rows)
 
 st.divider()
 

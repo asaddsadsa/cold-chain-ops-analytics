@@ -116,3 +116,15 @@ class TestConsumersDoNotDrift:
         board = UI.warning_rows(raw, limit=2)
         assert list(board["date"]) == sorted(board["date"], reverse=True)  # 最近的在前
         assert len(board) == 2
+
+
+class TestWarningListPresentation:
+    """看板预警清单的**展示口径**：默认不截断。列名读法见 `test_dashboard_labels.py`。"""
+
+    def test_without_a_limit_every_anomaly_is_returned(self):
+        """默认不截断。看板要摆出**全部**异常——截断是替用户决定「看多少」，
+        而用户要的恰恰是全部（曾经写死 limit=10，265 条里只露出 10 条）。"""
+        raw = _anomalies()
+        n_anomalies = int((raw["anomaly_type"] != C.NO_ANOMALY).sum())
+        assert len(UI.warning_rows(raw)) == n_anomalies
+        assert len(UI.warning_rows(raw, limit=2)) == 2, "给了 limit 还是要照办"

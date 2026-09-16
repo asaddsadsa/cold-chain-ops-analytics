@@ -256,7 +256,7 @@ _diag_rows = [
     },
 ]
 diag = pd.DataFrame(_diag_rows)
-st.dataframe(diag, width="stretch", hide_index=True)
+UI.data_table(diag)
 
 # 量化改善幅度（三条能折成同一量纲百分比的收益）
 _gains = pd.DataFrame({
@@ -454,7 +454,7 @@ st.caption(
     f"{_pct(_by['A']['line_share'])} 出库行数。阈值一变，三个数字与下方帕累托立即重算"
     f"（缓存键含两个阈值，拖动即生效）。"
 )
-st.dataframe(_classes_tbl, width="stretch", hide_index=True)
+UI.data_table(_classes_tbl)
 
 UI.chart_block(
     CH.cumulative_share_chart(
@@ -656,7 +656,7 @@ with st.expander("完整敏感性表（三个参数 × 三档，one-at-a-time）
                 "纯电日成本(元)": round(float(_d["ev_daily_cost"]), 2),
                 "盈亏平衡里程(km)": round(float(_d["breakeven_km"]), 2),
             })
-    st.dataframe(pd.DataFrame(_full_rows), width="stretch", hide_index=True)
+    UI.data_table(pd.DataFrame(_full_rows))
     st.caption(
         "每一行都是「只变该参数到该档、其余留 mid」的结果（one-at-a-time），"
         "**不是**三个参数同时变化的组合。证据：`" + _rel(C.TRANSPORT_TCO_JSON) + " → sensitivity`。"

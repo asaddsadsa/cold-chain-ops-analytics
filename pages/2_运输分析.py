@@ -223,20 +223,18 @@ folium.CircleMarker(
 st.iframe(_fmap._repr_html_(), height=520)
 
 _map_trips = D.artifact("transport_trips")
-_map_tbl = (_map_trips[_map_trips["plan"] == _plan]
-            [["trip_id", "mode", "n_stops", "n_orders", "load_kg", "load_rate",
-              "distance_km", "duration_min", "trip_cost"]]
-            .rename(columns={"trip_id": "趟次", "mode": "动力", "n_stops": "点位数",
-                             "n_orders": "订单数", "load_kg": "载重 (kg)",
-                             "load_rate": "满载率", "distance_km": "里程 (km)",
-                             "duration_min": "时长 (min)", "trip_cost": "趟成本 (元)"}))
+# 列名保持产物原样（`trip_id`/`distance_km`…），中文表头由 `UI.data_table` 统一给
+# ——列名的解释只此一处，页面就地 .rename 会让同一个列在不同表里读出两个名字。
+_map_tbl = _map_trips[_map_trips["plan"] == _plan][
+    ["trip_id", "mode", "n_stops", "n_orders", "load_kg", "load_rate",
+     "distance_km", "duration_min", "trip_cost"]]
 st.caption(
     f"当前方案：**{PLAN_LABEL[_plan]}**，共 {len(_map_tbl)} 趟、"
-    f"总里程 {_map_tbl['里程 (km)'].sum():,.2f} km、"
-    f"总成本 {_map_tbl['趟成本 (元)'].sum():,.2f} 元（逐趟明细见下表）。"
+    f"总里程 {_map_tbl['distance_km'].sum():,.2f} km、"
+    f"总成本 {_map_tbl['trip_cost'].sum():,.2f} 元（逐趟明细见下表）。"
 )
 with st.expander(f"{PLAN_LABEL[_plan]}逐趟明细数据表"):
-    st.dataframe(_map_tbl, width="stretch", hide_index=True)
+    UI.data_table(_map_tbl)
 
 st.divider()
 
@@ -372,12 +370,9 @@ for _col, _plan_key in ((_t0, "baseline"), (_t1, "optimized")):
             _titled(_fig, f"满载率分布 · {PLAN_LABEL[_plan_key]}（{len(_vals)} 趟）"),
             caption=f"{PLAN_LABEL[_plan_key]}：均值 {_vals.mean():.2f}%、中位 {_vals.median():.2f}%、"
                     f"最小 {_vals.min():.2f}%、最大 {_vals.max():.2f}%（共 {len(_vals)} 趟）。",
-            table=(_trips.loc[_trips["plan"] == _plan_key, ["trip_id", "n_stops", "n_orders",
-                                                            "load_kg", "load_rate",
-                                                            "distance_km"]]
-                   .rename(columns={"trip_id": "趟次", "n_stops": "点位数", "n_orders": "订单数",
-                                    "load_kg": "载重 (kg)", "load_rate": "满载率",
-                                    "distance_km": "里程 (km)"})),
+            table=_trips.loc[_trips["plan"] == _plan_key,
+                             ["trip_id", "n_stops", "n_orders", "load_kg", "load_rate",
+                              "distance_km"]],
             table_label=f"{PLAN_LABEL[_plan_key]}满载率数据表",
         )
 
@@ -435,8 +430,9 @@ with _p1:
             table=(_anom.groupby("region")["temp_compliance_rate"]
                    .agg(["size", "mean"]).reset_index()
                    .assign(region=lambda d: D.label_regions(d["region"]))
-                   .rename(columns={"region": "片区", "size": "运单数",
-                                    "mean": "温控达标率（均值）"})),
+                   # `size` / `mean` 是**这一行聚合出来的**，不是产物列名，故就地取名；
+                   # 全局映射只登记产物列名（labels.py 规矩 2），`region` 由它管。
+                   .rename(columns={"size": "运单数", "mean": "温控达标率（均值）"})),
             table_label="温控达标率数据表",
         )
 
@@ -494,7 +490,7 @@ else:
                     "5% 下显著": "是" if _d["significant_at_5pct"] else "否",
                 })
             if _pt_rows:
-                st.dataframe(pd.DataFrame(_pt_rows), width="stretch", hide_index=True)
+                UI.data_table(pd.DataFrame(_pt_rows))
                 _rep = (_pts.get("weekly_replication") or {})
                 _fr = _rep.get("friday_late") or {}
                 _r7 = _rep.get("r07_anomaly") or {}
@@ -560,38 +556,25 @@ st.caption(
     f"±{(1 - C.HUOLALA_TIE_BAND) * 100:.0f}% 以内即判持平）。"
 )
 
-_by_plan = pd.DataFrame(_outs["by_plan"]).T.reset_index().rename(columns={"index": "方案"})
-_by_plan["方案"] = _by_plan["方案"].map(lambda k: PLAN_LABEL.get(k, k))
+_by_plan = pd.DataFrame(_outs["by_plan"]).T.reset_index().rename(columns={"index": "plan"})
+_by_plan["plan"] = _by_plan["plan"].map(lambda k: PLAN_LABEL.get(k, k))
 _by_plan = _by_plan[[
-    "方案", "n_trips", "total_self_cost", "total_huolala_cost", "delta_pct_vs_huolala",
+    "plan", "n_trips", "total_self_cost", "total_huolala_cost", "delta_pct_vs_huolala",
     "n_trips_self_cheaper", "n_trips_outsource_cheaper", "n_trips_tie", "best_mode",
-]].rename(columns={
-    "n_trips": "趟次", "total_self_cost": "自营总成本 (元)",
-    "total_huolala_cost": "货拉拉总报价 (元)", "delta_pct_vs_huolala": "自营 vs 货拉拉 (%)",
-    "n_trips_self_cheaper": "自营更省趟数", "n_trips_outsource_cheaper": "外包更省趟数",
-    "n_trips_tie": "持平趟数", "best_mode": "自营较省模式",
-})
-st.dataframe(_by_plan, width="stretch", hide_index=True)
+]]
+UI.data_table(_by_plan)
 st.caption(
     f"当前主口径为 **{PLAN_LABEL.get(_outs['primary_plan'], _outs['primary_plan'])}**："
-    f"全部 {_by_plan['趟次'].sum()} 趟里自营更省 "
-    f"{int(_by_plan['自营更省趟数'].sum())} 趟、外包更省 {int(_by_plan['外包更省趟数'].sum())} 趟、"
-    f"持平 {int(_by_plan['持平趟数'].sum())} 趟。{_tco['recommendation']['outsourcing_verdict']}。"
+    f"全部 {_by_plan['n_trips'].sum()} 趟里自营更省 "
+    f"{int(_by_plan['n_trips_self_cheaper'].sum())} 趟、"
+    f"外包更省 {int(_by_plan['n_trips_outsource_cheaper'].sum())} 趟、"
+    f"持平 {int(_by_plan['n_trips_tie'].sum())} 趟。{_tco['recommendation']['outsourcing_verdict']}。"
 )
 
 with st.expander("逐趟对照明细数据表（自营 / 货拉拉）"):
     _per_trip = pd.DataFrame(_outs["per_trip"])
     _per_trip["plan"] = _per_trip["plan"].map(lambda k: PLAN_LABEL.get(k, k))
-    st.dataframe(
-        _per_trip.rename(columns={
-            "trip_id": "趟次", "plan": "方案", "n_stops": "点位数", "n_orders": "订单数",
-            "distance_km": "里程 (km)", "self_diesel_cost": "自营-柴油 (元)",
-            "self_ev_cost": "自营-纯电 (元)", "self_cost": "自营-较省者 (元)",
-            "self_best_mode": "自营较省模式", "huolala_cost": "货拉拉 (元)",
-            "delta_pct_vs_huolala": "自营 vs 货拉拉 (%)", "verdict": "结论",
-        }),
-        width="stretch", hide_index=True,
-    )
+    UI.data_table(_per_trip)
 st.caption(
     "**口径提醒**：自营单趟成本的分摊口径见上方引自产物的 `outsourcing.basis`（含「代表日每台车"
     "恰好只跑一趟、日固定成本全额摊入」这一前提）。此外，`self_cost` 取柴油/纯电较省者，隐含"
