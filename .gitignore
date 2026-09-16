@@ -31,6 +31,14 @@ env/
 .DS_Store
 Thumbs.db
 
+# ===== 求职个人材料（含联系方式与求职策略，不进公开仓库）=====
+task_plan.md
+findings.md
+progress.md
+career-claim-ledger.json
+resume/
+.planning/
+
 # ===== 报告中间产物 =====
 report/build/
 *.log
