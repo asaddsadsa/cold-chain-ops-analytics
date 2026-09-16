@@ -33,7 +33,7 @@ def bar_chart(labels, values, *, label: str, unit: str = "", slot: int = 0,
     if orientation == "h":
         trace = go.Bar(y=list(labels), x=list(values), orientation="h", name=label,
                        marker={"color": colors, "line": {"width": 0}},
-                       hovertemplate="%{y}<br>" + label + " %{x:." + str(decimals) + "f"
+                       hovertemplate="%{y}<br>" + label + " %{x:." + str(decimals) + "f}"
                        + unit + "<extra></extra>")
         fig = go.Figure(trace)
         fig.update_layout(xaxis={"title": unit}, yaxis={"title": "", "autorange": "reversed"})
@@ -250,7 +250,7 @@ def stacked_bars(labels, segments: dict[str, list[float]], *, unit: str = "",
         fig.add_bar(
             x=list(labels), y=list(values), name=name,
             marker={"color": theme.series(i), "line": {"width": 0}},
-            hovertemplate="%{x}｜" + name + " %{y:." + str(decimals) + "f" + unit
+            hovertemplate="%{x}｜" + name + " %{y:." + str(decimals) + "f}" + unit
                           + "<extra></extra>",
         )
     fig.update_layout(

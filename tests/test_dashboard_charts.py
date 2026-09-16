@@ -9,6 +9,8 @@
 
 from __future__ import annotations
 
+import re
+
 import pytest
 
 from src.dashboard import charts, theme
@@ -108,3 +110,66 @@ class TestTcoCurve:
         fig = charts.tco_curve("纯电租赁", [0, 50], [384.0, 406.0], slot=1,
                                breakeven_km=46.27, ref_km=87.62, ref_cost=422.6)
         assert fig.data[0].line.color == theme.series(1)
+
+
+#: 占位符：`%{` 到最近的 `}`。plotly 用它做替换，**没闭合的 `%{…` 不匹配、原样输出**。
+_PLACEHOLDER = re.compile(r"%\{[^}]*\}")
+
+
+def _all_builders() -> dict[str, object]:
+    """每个公开构造器的最小可跑调用（含两个方向、两个分支）。"""
+    return {
+        "bar_chart(纵向)": charts.bar_chart(["A", "B"], [1.0, 2.0], label="件数", unit=" 件"),
+        "bar_chart(横向)": charts.bar_chart(["A", "B"], [1.0, 2.0], label="件数", unit=" 件",
+                                            orientation="h"),
+        "cumulative_share_chart": charts.cumulative_share_chart(["A", "B"], [80.0, 20.0],
+                                                                [80.0, 100.0]),
+        "heatmap_grid": charts.heatmap_grid([0, 1], ["R01", "R02"], [[1, 2], [3, 4]],
+                                            x_title="时段", y_title="片区", color_title="行数"),
+        "histogram": charts.histogram([1.0, 2.0, 3.0], label="时长", unit=" 秒"),
+        "pie_chart": charts.pie_chart(["拥堵", "晚点"], [3, 2]),
+        "gauge": charts.gauge(0.95, title="温控达标率"),
+        "slot_bars": charts.slot_bars(["优化前", "优化后"], [1170.1, 876.2], [0, 1], unit=" km"),
+        "bar_with_ci": charts.bar_with_ci(["3 人", "4 人"], [100.0, 90.0], [95.0, 85.0],
+                                          [105.0, 95.0], label="时长", unit=" 秒"),
+        "stacked_bars": charts.stacked_bars(["3 人", "4 人"],
+                                            {"波次累积等待": [1500.0, 1480.0],
+                                             "复核": [60.0, 60.0]}, unit=" 秒/单"),
+        "tco_curve": charts.tco_curve("柴油自购", [0, 50], [353.0, 408.5], slot=0,
+                                      breakeven_km=46.27, ref_km=87.62, ref_cost=450.3),
+        "dual_line_chart": charts.dual_line_chart([1, 2], {"甲": [1.0, 2.0], "乙": [2.0, 1.0]},
+                                                  y_title="比率 (%)", unit="%"),
+    }
+
+
+class TestHoverTemplatesAreWellFormed:
+    """回归：hover 模板里的占位符必须**闭合**。
+
+    没闭合的 `%{…` 不匹配 plotly 的占位符正则（`/%{([^\\s%{}:]*)([:|\\|][^}]*)?}/g`），
+    于是它**连同后面的文字一起原样显示**——用户悬停看到的是「盘点差异率 %{x:.2f}%」这串
+    字符，而不是数字。
+
+    这类 bug 只在浏览器里看得见（构造器返回的 `Figure` 本身完全合法，测试全绿），所以这条
+    测试把**每个构造器 × 每条 trace**都扫一遍，而不是只钉住当时出问题的那两个分支：
+    `bar_chart` 的横向分支自初始提交起就漏了闭合括号（纵向分支有），`stacked_bars` 又照抄了
+    同一写法——同一个手误写了两遍，说明要守的是**写法**，不是那两个函数。
+    """
+
+    @pytest.mark.parametrize("name", sorted(_all_builders()))
+    def test_no_unclosed_placeholder(self, name):
+        fig = _all_builders()[name]
+        for i, trace in enumerate(fig.data):
+            template = getattr(trace, "hovertemplate", None)
+            if not template:
+                continue
+            leftover = _PLACEHOLDER.sub("", template)
+            assert "%{" not in leftover, (
+                f"{name} 的 trace[{i}] 有未闭合的占位符，plotly 会把这段原样显示：{template!r}"
+            )
+
+    def test_a_formatted_placeholder_survives_the_round_trip(self):
+        """把当初坏掉的两个形状单独钉死：数值要带格式、单位要接在占位符**外面**。"""
+        horizontal = _all_builders()["bar_chart(横向)"].data[0].hovertemplate
+        assert horizontal == "%{y}<br>件数 %{x:.2f} 件<extra></extra>"
+        stacked = _all_builders()["stacked_bars"].data[0].hovertemplate
+        assert stacked == "%{x}｜波次累积等待 %{y:.0f} 秒/单<extra></extra>"
